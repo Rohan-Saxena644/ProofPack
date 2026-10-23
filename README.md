@@ -100,6 +100,8 @@ The durable ledger determines the result. Both finalization and report generatio
 
 See [architecture, failure modes, and engineering notes](docs/architecture.md).
 
+See the [measured bottleneck review](docs/bottlenecks.md) for prompt-token savings, indexed history queries, terminal polling behavior, and remaining improvements.
+
 ## Open models
 
 **Fixture mode** is the default and supports the documented LaunchDesk persistence scenario only. It uses deterministic planning and decisions but a real Chromium browser and real assertions. The dashboard, timeline, call metadata, and exports label it clearly. There is **no automatic fallback** from live to fixture mode.

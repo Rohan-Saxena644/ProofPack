@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -37,6 +37,9 @@ export class Store {
       CREATE TABLE IF NOT EXISTS model_calls (id TEXT PRIMARY KEY, attemptId TEXT NOT NULL REFERENCES attempts(id), stage TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL, latencyMs INTEGER NOT NULL, inputTokens INTEGER, outputTokens INTEGER, valid INTEGER NOT NULL, error TEXT);
       CREATE INDEX IF NOT EXISTS run_queue ON runs(status,createdAt);
       CREATE INDEX IF NOT EXISTS events_attempt ON events(attemptId,startedAt);
+      CREATE INDEX IF NOT EXISTS attempts_active_lease ON attempts(status,leaseUntil);
+      CREATE INDEX IF NOT EXISTS artifacts_attempt ON artifacts(attemptId);
+      CREATE INDEX IF NOT EXISTS model_calls_attempt ON model_calls(attemptId);
       PRAGMA user_version = 1;
     `);
     this.db = drizzle(this.sqlite);
@@ -109,8 +112,10 @@ export class Store {
         const stale = this.db
           .select()
           .from(attempts)
-          .all()
-          .filter((a) => ['running', 'planning'].includes(a.status) && a.leaseUntil < now);
+          .where(
+            and(inArray(attempts.status, ['running', 'planning']), lt(attempts.leaseUntil, now)),
+          )
+          .all();
         for (const a of stale) {
           this.finish(
             a.id,

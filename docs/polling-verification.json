@@ -1,0 +1,9 @@
+{
+  "verifiedAt": "2026-10-23T16:00:45.196Z",
+  "note": "Real Chromium and production UI, explicitly mocked HTTP run responses. No job/model outcome claim.",
+  "terminalPollingStops": true,
+  "focusRevalidates": true,
+  "retryResumesPolling": true,
+  "maximumConcurrentRequests": 1,
+  "requests": 5
+}

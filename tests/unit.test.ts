@@ -240,6 +240,31 @@ test('transactional claims are exclusive across connections; expired attempts re
     b.close();
   }
 });
+test('lease reaping isolates expired active work from fresh and completed attempts', () => {
+  const s = store();
+  try {
+    const claims = Array.from({ length: 4 }, () => {
+      s.create(input);
+      return s.claim('lease-test')!;
+    });
+    const now = Date.now();
+    s.setPlan(claims[1].attempt.id, fixturePlan);
+    s.cancel(claims[2].run.id);
+    s.finish(claims[3].attempt.id, 'blocked', 'Original failure');
+    for (const index of [0, 2])
+      s.sqlite
+        .prepare('UPDATE attempts SET leaseUntil=? WHERE id=?')
+        .run(now - 1, claims[index].attempt.id);
+    s.reap(now);
+    assert.deepEqual(
+      claims.map((c) => s.get(c.run.id)?.status),
+      ['interrupted', 'running', 'cancelled', 'blocked'],
+    );
+    assert.equal(s.detail(claims[3].run.id)!.attempts[0].error, 'Original failure');
+  } finally {
+    s.close();
+  }
+});
 test('evidence references must belong to the current attempt', () => {
   const s = store();
   try {
@@ -373,6 +398,8 @@ test('live adapter sends schema, records actual provider metadata, and unwraps d
       const body = JSON.parse(String(init?.body));
       assert.equal(body.response_format.type, 'json_schema');
       assert.equal(body.messages[0].role, 'system');
+      assert.ok(!body.messages[0].content.includes('JSON Schema:'));
+      assert.ok(body.messages[0].content.includes('assert(assertionId)'));
       return Response.json({
         model: 'test-actual-model',
         provider: 'actual-provider',
@@ -462,6 +489,29 @@ test('Groq discovers account models and sends strict output with reasoning token
     assert.equal(reply.provider, 'groq');
     assert.equal(reply.inputTokens, 25);
     assert.equal(groqFormat('other-active-model'), 'json_object');
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+test('non-strict output modes retain the full schema instructions', async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      assert.ok(body.messages[0].content.includes('JSON Schema:'));
+      assert.ok(body.messages[0].content.includes('"oneOf"'));
+      return Response.json({
+        choices: [
+          { message: { content: '{"action":{"type":"capture","description":"Capture"}}' } },
+        ],
+      });
+    };
+    for (const format of ['json_object', 'none'] as const) {
+      const reply = await new LiveAdapter(
+        loadConfig({ MODEL_MODE: 'live', MODEL_PROVIDER: 'local', MODEL_FORMAT: format }),
+      ).request('decision', decisionInput, actionSchema, null, new AbortController().signal);
+      assert.equal(actionSchema.parse(reply.value).type, 'capture');
+    }
   } finally {
     globalThis.fetch = original;
   }

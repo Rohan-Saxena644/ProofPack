@@ -19,6 +19,6 @@ Hosted inference sends the brief, expected outcomes and bounded page observation
 
 After the user supplied the key locally, **actual live Groq inference was verified**: working persistence passed 4/4 assertions, broken persistence failed the final assertion, and the isolated live negative/boundary/export checks completed. Read [live-verification.md](live-verification.md) and [the recorded results](live-verification-results.json) for run IDs, earlier failures, bounded rate-limit handling and reused evidence.
 
-Regression checks include **16 unit tests**, **8 fixture browser verification groups**, TypeScript, lint and a production build. Unit-test Groq HTTP responses remain mocked with a synthetic key; the separate live suite makes actual authenticated model requests. A catalog-only check never claims inference success.
+Regression checks include **18 unit tests**, **8 fixture browser verification groups**, TypeScript, lint and a production build. Unit-test Groq HTTP responses remain mocked with a synthetic key; the separate live suite makes actual authenticated model requests. A catalog-only check never claims inference success.
 
 References: [Groq models](https://console.groq.com/docs/models), [structured outputs](https://console.groq.com/docs/structured-outputs), [OpenAI compatibility](https://console.groq.com/docs/openai), [rate limits](https://console.groq.com/docs/rate-limits).

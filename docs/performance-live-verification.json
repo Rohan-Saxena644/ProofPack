@@ -1,0 +1,38 @@
+{
+  "verifiedAt": "2026-10-23T16:03:17.488Z",
+  "mode": "live",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\performance-live\\c89bd939-0988-440b-b3a5-edcb5031d5bb",
+  "note": "Fresh real Chromium persistence runs using the smaller strict prompt. Not a controlled timing benchmark; rate limits/model decisions vary.",
+  "results": [
+    {
+      "runId": "433459aa-e050-4b09-9262-29936290337c",
+      "expected": "passed",
+      "status": "passed",
+      "verified": true,
+      "error": null,
+      "durationMs": 148700,
+      "assertionsPassed": 4,
+      "assertionsTotal": 4,
+      "modelCalls": 34,
+      "rateLimitedAttempts": 14,
+      "reportedInputTokens": 27940,
+      "reportedOutputTokens": 5724
+    },
+    {
+      "runId": "ace30d01-9f91-428f-b2cf-f7371051055b",
+      "expected": "failed",
+      "status": "blocked",
+      "verified": false,
+      "error": "Model provider rate limited the request (HTTP 429). Retry delay: 442s.",
+      "durationMs": 57161,
+      "assertionsPassed": 0,
+      "assertionsTotal": 0,
+      "modelCalls": 13,
+      "rateLimitedAttempts": 6,
+      "reportedInputTokens": 9174,
+      "reportedOutputTokens": 2105
+    }
+  ]
+}

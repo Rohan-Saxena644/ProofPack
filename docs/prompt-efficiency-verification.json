@@ -1,0 +1,23 @@
+{
+  "note": "Two actual provider decisions on the identical synthetic observation, not browser execution or a reliability benchmark. Usage is provider-reported; no cost inferred.",
+  "before": {
+    "measuredAt": "2026-10-23T15:56:14.003Z",
+    "label": "before",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "payloadSha256": "db51d78090ad91a8d9a884144769d934d9fd8bb3383e64d267ab9e9835b3343a",
+    "inputTokens": 1449,
+    "outputTokens": 173,
+    "action": "complete_goal"
+  },
+  "after": {
+    "measuredAt": "2026-10-23T15:57:09.797Z",
+    "label": "after",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "payloadSha256": "db51d78090ad91a8d9a884144769d934d9fd8bb3383e64d267ab9e9835b3343a",
+    "inputTokens": 1101,
+    "outputTokens": 162,
+    "action": "complete_goal"
+  }
+}

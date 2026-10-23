@@ -1,44 +1,44 @@
 {
-  "verifiedAt": "2026-10-23T15:38:07.774Z",
+  "verifiedAt": "2026-10-23T16:00:38.715Z",
   "mode": "fixture",
-  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\verification\\8de38d81-1c0b-422c-b06e-ff791f43d1f6",
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\verification\\fabf68c6-cfbc-4de7-ae4c-ba3d13f1d1ec",
   "results": [
     {
       "check": "Working persistence, including fresh browser context",
       "status": "passed",
-      "runId": "a0c7cbce-7d5f-4ce6-9918-60af28c1128a",
+      "runId": "16213c37-2ffc-4db3-8d26-91208186c565",
       "assertions": 4
     },
     {
       "check": "Broken persistence contradicts the final assertion",
       "status": "failed",
-      "runId": "7da8ef3c-401b-494f-8487-cfaa6b4598c0",
+      "runId": "c7dc96fc-6cdb-40e4-84d5-3069c6e75e4e",
       "assertions": 4
     },
     {
       "check": "Unreachable target",
       "status": "blocked",
-      "runId": "596d192d-19c9-4d7d-8c2c-9ff251b2f324"
+      "runId": "7be9dfa7-95dd-478b-bea8-bcb6fc6a8a38"
     },
     {
       "check": "Invalid model output stops after 3 repairs",
       "status": "blocked",
-      "runId": "06830c15-83f3-4295-87a7-c64250ec1314"
+      "runId": "5314cfd5-d134-4983-a463-b81375eec425"
     },
     {
       "check": "Cancellation stops further browser actions",
       "status": "cancelled",
-      "runId": "57758bf5-0904-46fc-a130-022745b451ce"
+      "runId": "582aa125-f38a-489f-a0f6-bd2ed8e1ee9c"
     },
     {
       "check": "Expired lease preserved, fresh isolated retry passes",
       "status": "passed",
-      "runId": "fa5a144e-29a9-4085-bc02-263c26504f97"
+      "runId": "db52ffdd-c911-4678-b892-534c0ba7fa22"
     },
     {
       "check": "Origin boundary blocks requests, redirect, popup and WebSocket",
       "status": "passed",
-      "runId": "7c6143ee-2ed1-4837-913c-0ada9a8861f0"
+      "runId": "515b1bf1-cd8f-4e0d-b04f-d3e04536508a"
     },
     {
       "check": "HTML embeds loadable screenshots, Markdown matches ledger, finalized traces redact sessions",

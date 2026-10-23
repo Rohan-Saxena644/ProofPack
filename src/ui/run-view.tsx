@@ -22,12 +22,17 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
   const [detail, setDetail] = useState<RunDetail | null>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
-    [now, setNow] = useState(0);
+    [now, setNow] = useState(0),
+    [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => {
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
     const refresh = async () => {
+      let pollAgain = true;
       try {
-        const d = await getJson<RunDetail>(`/api/runs/${id}`);
+        const d = await getJson<RunDetail>(`/api/runs/${id}`, { signal: controller.signal });
+        pollAgain = ['queued', 'planning', 'running'].includes(d.run.status);
         if (active) {
           setDetail(d);
           setNow(Date.now());
@@ -36,14 +41,18 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
       } catch (e) {
         if (active) setError((e as Error).message);
       }
+      if (active && pollAgain) timer = setTimeout(refresh, 1500);
     };
     void refresh();
-    const timer = setInterval(refresh, 1500);
+    const revalidate = () => setRefreshKey((key) => key + 1);
+    window.addEventListener('focus', revalidate);
     return () => {
       active = false;
-      clearInterval(timer);
+      clearTimeout(timer);
+      controller.abort();
+      window.removeEventListener('focus', revalidate);
     };
-  }, [id]);
+  }, [id, refreshKey]);
   const mutate = async (action: string) => {
     setBusy(true);
     try {
@@ -53,6 +62,7 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
         body: '{}',
       });
       setDetail(await getJson(`/api/runs/${id}`));
+      setRefreshKey((key) => key + 1);
     } catch (e) {
       setError((e as Error).message);
     } finally {

@@ -86,6 +86,14 @@ export class LiveAdapter implements Adapter {
             additionalProperties: false,
           }
         : jsonSchema;
+    // Strict output already carries the full schema. Repeating it in the system
+    // message consumes input quota on every browser decision.
+    const outputInstructions =
+      this.format === 'json_schema'
+        ? stage === 'decision'
+          ? 'Return {"action": <chosen action>} using the supplied response-format schema. Actions: fill(controlId,value), click(controlId), select(controlId,value), navigate(url), assert(assertionId), capture, fresh_context, complete_goal. Every action includes description.'
+          : 'Return the plan object using the supplied response-format schema: name, variables, goals, successCriteria, assertions.'
+        : `Return ${stage === 'decision' ? '{"action": <chosen action>}' : 'the plan object'}. JSON Schema: ${JSON.stringify(schemaBody)}`;
     const response = await fetch(`${c.MODEL_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
       method: 'POST',
       signal: requestSignal,
@@ -123,9 +131,7 @@ export class LiveAdapter implements Adapter {
         messages: [
           {
             role: 'system',
-            content:
-              (stage === 'plan' ? planningRules : decisionRules) +
-              `\nReturn ${stage === 'decision' ? '{"action": <chosen action>}' : 'the plan object'}. JSON Schema: ${JSON.stringify(schemaBody)}`,
+            content: (stage === 'plan' ? planningRules : decisionRules) + `\n${outputInstructions}`,
           },
           {
             role: 'user',

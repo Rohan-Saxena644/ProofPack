@@ -1,0 +1,37 @@
+{
+  "note": "Synthetic isolated history benchmark; nine warm samples per operation, same machine. Not a production load or concurrency guarantee.",
+  "before": {
+    "measuredAt": "2026-10-23T15:56:25.415Z",
+    "label": "before",
+    "synthetic": true,
+    "runCount": 5000,
+    "modelCallRows": 100000,
+    "samplesPerOperation": 9,
+    "idleClaim": {
+      "medianMs": 29.956,
+      "maxMs": 40.333
+    },
+    "runDetail": {
+      "medianMs": 17.551,
+      "maxMs": 20.4
+    },
+    "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\performance\\9ca668aa-4e52-4b02-b2bc-e6a8c9555107"
+  },
+  "after": {
+    "measuredAt": "2026-10-23T15:57:10.821Z",
+    "label": "after",
+    "synthetic": true,
+    "runCount": 5000,
+    "modelCallRows": 100000,
+    "samplesPerOperation": 9,
+    "idleClaim": {
+      "medianMs": 0.386,
+      "maxMs": 0.551
+    },
+    "runDetail": {
+      "medianMs": 0.399,
+      "maxMs": 0.563
+    },
+    "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\performance\\e06e2dd0-6723-431c-860b-db17ff46ba16"
+  }
+}

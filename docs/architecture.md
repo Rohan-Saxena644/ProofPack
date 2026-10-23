@@ -31,6 +31,8 @@ The final status is checked against the durable ledger. SQLite finalization and 
 
 Database schema version 1 is initialized idempotently. There is no upgrade migration history yet; future schema changes need explicit migrations. Artifact files are separate from SQLite and served only by validated IDs with path containment checks. Files are not embedded into the database.
 
+Lease reaping filters expired active attempts in SQL with an index on status/lease. Model-call and artifact detail lookups are indexed by attempt, avoiding scans of unrelated history. These additive indexes initialize for existing databases too. Terminal run pages stop polling, revalidate on focus, and resume updates after explicit retries. Active polling waits for the previous request to finish before scheduling another.
+
 ## Outcome state machine
 
 `Queued → Planning → Running → Passed / Failed / Blocked / Interrupted / Cancelled`
@@ -66,5 +68,7 @@ Synthetic credentials are generated per attempt. Screenshots mask password input
 ## Deliberate choices and bottlenecks
 
 Groq GPT-OSS 120B completed actual live working/broken persistence and negative/boundary checks; see [the live verification record](live-verification.md). Early 20B/120B diagnostic failures and cancellations are preserved. Actual provider throttling affected elapsed time. This is a limited verification, not a reliability benchmark. OpenRouter and local inference remain unverified beyond protocol tests/catalog checks. The adapter remains replaceable, with capability negotiation for hosted providers and explicit format configuration for local servers.
+
+Strict-output requests send the full schema once via the provider format field and retain a compact action guide in the prompt. Non-strict modes keep the full schema instructions. [The bottleneck review](bottlenecks.md) records the measured token/query reductions and the remaining provider-quota, retention and incremental-event recommendations.
 
 Deterministic reports satisfy the evidence requirement without adding an unverified narrative generation stage. A later narrative model should cite validated evidence IDs and must never change ledger outcomes. SQLite is sufficient for a local solo-developer MVP; it is not a distributed queue. Large exports, artifact cleanup, broader browser workflows and richer input variables are follow-up work, not implied capabilities.
