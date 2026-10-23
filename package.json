@@ -1,0 +1,21 @@
+{
+  "name": "proofpack", "version": "0.1.0", "private": true, "license": "MIT",
+  "engines": { "node": ">=22.16" },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "worker": "tsx src/worker/main.ts",
+    "demo:working": "tsx src/launchdesk/server.ts --port=4100 --mode=working",
+    "demo:broken": "tsx src/launchdesk/server.ts --port=4101 --mode=broken",
+    "dev:all": "concurrently -k -n dashboard,worker,working,broken \"npm:dev\" \"npm:worker\" \"npm:demo:working\" \"npm:demo:broken\"",
+    "build": "next build", "start": "next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit", "lint": "eslint .",
+    "test": "tsx --test tests/unit.test.ts", "test:e2e": "tsx scripts/verify.ts",
+    "browsers": "playwright install chromium", "model:check": "tsx scripts/check-model.ts"
+  },
+  "dependencies": {
+    "next": "latest", "react": "latest", "react-dom": "latest", "better-sqlite3": "latest", "drizzle-orm": "latest", "playwright": "latest", "zod": "latest", "dotenv": "latest", "lucide-react": "latest"
+  },
+  "devDependencies": {
+    "typescript": "latest", "tsx": "latest", "@types/node": "latest", "@types/react": "latest", "@types/react-dom": "latest", "@types/better-sqlite3": "latest", "tailwindcss": "latest", "@tailwindcss/postcss": "latest", "eslint": "latest", "eslint-config-next": "latest", "concurrently": "latest"
+  }
+}
