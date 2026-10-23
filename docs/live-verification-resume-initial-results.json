@@ -1,0 +1,23 @@
+{
+  "verifiedAt": "2026-10-23T15:30:45.410Z",
+  "mode": "live",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "catalog": {
+    "id": "openai/gpt-oss-120b",
+    "provider": "groq",
+    "format": "json_schema",
+    "contextLength": 131072,
+    "supportedParameters": null
+  },
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\live-verification\\0b219a2d-7f58-4504-abf3-90a7710e618c",
+  "reusedRunIds": ["fa9998de-35b1-45bd-bbd3-e45897f5a9c4"],
+  "results": [
+    {
+      "check": "Verification stopped at an unexpected result",
+      "verified": false,
+      "inference": "live",
+      "detail": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'cancelled'\n- 'passed'\n"
+    }
+  ]
+}

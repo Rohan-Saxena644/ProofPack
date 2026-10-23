@@ -24,6 +24,10 @@ const shotPrefix = liveMode ? 'live-' : '';
 const errors: string[] = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const checks: string[] = [];
+const resumePass = process.argv.find((arg) => arg.startsWith('--resume-pass='))?.split('=')[1];
+const retryRun = process.argv.find((arg) => arg.startsWith('--retry-run='))?.split('=')[1];
+for (const id of [resumePass, retryRun])
+  if (id && !/^[a-f0-9-]{36}$/.test(id)) throw new Error('Invalid saved run identifier.');
 async function waitForRun(id: string) {
   const deadline = Date.now() + config.limits.timeoutMs + 30000;
   while (Date.now() < deadline) {
@@ -40,16 +44,26 @@ async function waitForRun(id: string) {
 try {
   await mkdir('docs/screenshots', { recursive: true });
   await page.goto(base);
-  await page.getByRole('button', { name: /Try the LaunchDesk scenario/ }).click();
-  assert.equal(await page.locator('#target').inputValue(), 'http://127.0.0.1:4100');
-  await page.getByRole('button', { name: /Start demonstration/ }).click();
-  await page.waitForURL(/\/runs\/[a-f0-9-]+$/);
+  if (resumePass) await page.goto(`${base}/runs/${resumePass}`);
+  else {
+    await page.getByRole('button', { name: /Try the LaunchDesk scenario/ }).click();
+    assert.equal(await page.locator('#target').inputValue(), 'http://127.0.0.1:4100');
+    await page.getByRole('button', { name: /Start demonstration/ }).click();
+    await page.waitForURL(/\/runs\/[a-f0-9-]+$/);
+  }
   const passId = page.url().split('/').at(-1)!;
   const pass = await waitForRun(passId);
   assert.equal(pass.run.status, 'passed');
+  assert.equal(pass.run.mode, config.mode);
+  assert.equal(pass.run.provider, config.provider);
+  assert.equal(pass.run.model, config.model);
   if (liveMode) verifyPersistenceCoverage(pass);
   else assert.equal(pass.assertions.length, 4);
-  checks.push('New-run form → persisted queue → separate worker → passing run details');
+  checks.push(
+    resumePass
+      ? 'Saved passing run revalidated, including live persistence coverage'
+      : 'New-run form → persisted queue → separate worker → passing run details',
+  );
   await page.getByRole('link', { name: 'Evidence report', exact: true }).click();
   await page.waitForURL(/\/report$/);
   await page.getByRole('heading', { name: 'What was requested' }).waitFor();
@@ -68,15 +82,32 @@ try {
   assert.equal(zip.headers()['content-type'], 'application/zip');
   checks.push('Report screen, masked evidence endpoints, HTML/Markdown exports and trace download');
   await page.goto(base);
-  await page.getByRole('button', { name: /Load broken scenario/ }).click();
-  await page.getByRole('button', { name: /Start demonstration/ }).click();
-  await page.waitForURL(/\/runs\/[a-f0-9-]+$/);
+  if (retryRun) {
+    await page.goto(`${base}/runs/${retryRun}`);
+    const response = page.waitForResponse(
+      (res) =>
+        res.url().endsWith(`/api/runs/${retryRun}/retry`) && res.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Retry in fresh attempt' }).click();
+    assert.ok((await response).ok());
+  } else {
+    await page.getByRole('button', { name: /Load broken scenario/ }).click();
+    await page.getByRole('button', { name: /Start demonstration/ }).click();
+    await page.waitForURL(/\/runs\/[a-f0-9-]+$/);
+  }
   const failId = page.url().split('/').at(-1)!,
     fail = await waitForRun(failId);
   assert.equal(fail.run.status, 'failed');
   if (liveMode) verifyPersistenceCoverage(fail);
   else assert.equal(fail.assertions.find((a) => a.specId === 'persisted')?.passed, false);
-  checks.push('Broken demo form → failed assertion and actual failure evidence');
+  if (retryRun) {
+    assert.ok(fail.attempts.length >= 2);
+    assert.equal(fail.attempts[0].status, 'blocked');
+    checks.push(
+      'Explicit UI retry preserves the original blocked attempt and uses fresh test data',
+    );
+  }
+  checks.push('Broken demo → failed assertion and actual failure evidence');
   const cancelResponse = await page.request.post(`${base}/api/runs`, {
     data: {
       targetUrl: 'http://127.0.0.1:4100',
@@ -140,6 +171,8 @@ try {
         base,
         passId,
         failId,
+        reusedPassId: resumePass ?? null,
+        retriedRunId: retryRun ?? null,
         checks,
       },
       null,

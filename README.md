@@ -6,7 +6,7 @@ ProofPack turns a short feature brief into a bounded browser demonstration with 
 
 It is a local-first TypeScript application, with a Next.js dashboard, a separate browser worker, SQLite storage, and replaceable open-model adapters. A report passes only when its required assertions pass. An unavailable target is **Blocked**, not a failed feature.
 
-![ProofPack dashboard showing actual persisted demo runs](docs/screenshots/dashboard.png)
+![ProofPack live Groq dashboard showing actual persisted demo runs](docs/screenshots/live-dashboard.png)
 
 ## Start locally
 
@@ -129,12 +129,12 @@ For **Groq**, use the settings in [.env.groq.example](.env.groq.example):
 MODEL_MODE=live
 MODEL_PROVIDER=groq
 MODEL_BASE_URL=https://api.groq.com/openai/v1
-MODEL_ID=openai/gpt-oss-20b
+MODEL_ID=openai/gpt-oss-120b
 MODEL_API_KEY=your-groq-key-here
 MODEL_FORMAT=auto
 ```
 
-Put the real key only in the ignored `.env` file. Groq's current documentation lists GPT-OSS 20B as a production open-weight model with strict structured-output support. The adapter checks the account's model catalog, uses the documented schema subset while preserving full Zod validation, and reserves output tokens for reasoning. It honors HTTP 429 `Retry-After` within the three-attempt and total runtime budgets; an indicated delay over 60 seconds stops clearly. Authentication/configuration HTTP errors stop without repeated identical requests. Hosted page observations leave the machine for Groq just as they do for OpenRouter.
+Put the real key only in the ignored `.env` file. The recorded live verification uses GPT-OSS 120B with strict structured-output support. The adapter checks the account's model catalog, uses the documented schema subset while preserving full Zod validation, and reserves output tokens for reasoning. It honors HTTP 429 `Retry-After` within the three-attempt and total runtime budgets; an indicated delay over 60 seconds stops clearly. Authentication/configuration HTTP errors stop without repeated identical requests. Hosted page observations leave the machine for Groq just as they do for OpenRouter.
 
 After saving a key, run `npm run model:check`, then `npm run test:live`. Restart both dashboard and worker to use the new configuration. [Groq models](https://console.groq.com/docs/models) · [structured outputs](https://console.groq.com/docs/structured-outputs) · [rate limits](https://console.groq.com/docs/rate-limits)
 
@@ -153,7 +153,7 @@ Use `json_object` or `none` if your local server does not support JSON schema re
 
 Open models let developers choose a provider, move inference to their own hardware, and inspect or adapt model behavior. They do not remove the need for application validation or executable checks. Gemma and other models have their own licenses; the MIT license here applies to original project code, not model weights.
 
-**Live inference remains unverified in this environment:** no API key or running local inference endpoint was supplied. Adapter protocol tests use mocked HTTP responses; browser verification used explicit fixture mode.
+**Live Groq inference verified:** the working LaunchDesk passed all four persistence checks, the broken instance failed only the final persistence check, and live cancellation, unavailable-target, injected-invalid-output, prompt-injection/origin and report/trace checks completed. See [the live verification record](docs/live-verification.md), including preserved earlier failures and provider rate limits. Actual inference through OpenRouter and local endpoints remains unverified; their protocol tests use mocked responses. Fixture evidence is labeled separately.
 
 Primary API references: [Next.js route handlers](https://nextjs.org/docs/app/getting-started/route-handlers), [Playwright network routing](https://playwright.dev/docs/network), [OpenRouter structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs), [OpenRouter model catalog](https://openrouter.ai/api/v1/models), [Zod JSON schema](https://zod.dev/json-schema).
 

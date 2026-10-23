@@ -1,49 +1,49 @@
 {
-  "verifiedAt": "2026-10-23T11:54:47.331Z",
+  "verifiedAt": "2026-10-23T15:38:07.774Z",
   "mode": "fixture",
-  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\verification\\6d7e587f-0566-45f8-9a10-ec7e043d92f1",
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\verification\\8de38d81-1c0b-422c-b06e-ff791f43d1f6",
   "results": [
     {
       "check": "Working persistence, including fresh browser context",
       "status": "passed",
-      "runId": "eb7b5132-22a8-4319-9ec1-7036faf32c1a",
+      "runId": "a0c7cbce-7d5f-4ce6-9918-60af28c1128a",
       "assertions": 4
     },
     {
       "check": "Broken persistence contradicts the final assertion",
       "status": "failed",
-      "runId": "39502ef3-ec67-4ac7-95ed-e6da920f517a",
+      "runId": "7da8ef3c-401b-494f-8487-cfaa6b4598c0",
       "assertions": 4
     },
     {
       "check": "Unreachable target",
       "status": "blocked",
-      "runId": "b7164503-bc86-4d47-83e4-7d6521086495"
+      "runId": "596d192d-19c9-4d7d-8c2c-9ff251b2f324"
     },
     {
       "check": "Invalid model output stops after 3 repairs",
       "status": "blocked",
-      "runId": "768af409-1fa5-47c8-8c06-d09a4cfa1812"
+      "runId": "06830c15-83f3-4295-87a7-c64250ec1314"
     },
     {
       "check": "Cancellation stops further browser actions",
       "status": "cancelled",
-      "runId": "e392633e-1bb2-4173-be15-5f356094502f"
+      "runId": "57758bf5-0904-46fc-a130-022745b451ce"
     },
     {
       "check": "Expired lease preserved, fresh isolated retry passes",
       "status": "passed",
-      "runId": "df82e9bf-e716-4bdc-b9bb-3f10974cc318"
+      "runId": "fa5a144e-29a9-4085-bc02-263c26504f97"
     },
     {
       "check": "Origin boundary blocks requests, redirect, popup and WebSocket",
       "status": "passed",
-      "runId": "393f2ef7-140e-4a3f-9e43-1d553c3f1493"
+      "runId": "7c6143ee-2ed1-4837-913c-0ada9a8861f0"
     },
     {
       "check": "HTML embeds loadable screenshots, Markdown matches ledger, finalized traces redact sessions",
       "status": "passed"
     }
   ],
-  "liveInference": "Unverified: no configured credentials or local endpoint."
+  "liveInference": "Fixture-only suite; live verification is recorded separately in docs/live-verification-results.json."
 }

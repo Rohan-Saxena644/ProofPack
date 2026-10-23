@@ -1,0 +1,16 @@
+{
+  "verifiedAt": "2026-10-23T15:42:00.402Z",
+  "check": "Saved standalone live HTML exports render embedded screenshots through file URLs, without the dashboard",
+  "checks": [
+    {
+      "runId": "76d19837-8358-4d7c-a7cc-14d5147475bd",
+      "embeddedScreenshotsLoaded": 10,
+      "verified": true
+    },
+    {
+      "runId": "e42adbfb-0dba-4f33-9567-63f46b31b883",
+      "embeddedScreenshotsLoaded": 12,
+      "verified": true
+    }
+  ]
+}

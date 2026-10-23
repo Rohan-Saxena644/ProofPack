@@ -1,6 +1,6 @@
 # Three-minute walkthrough
 
-Before recording: `npm run dev:all`. Open http://127.0.0.1:3000. Confirm **Fixture mode** is visible, or configure and separately verify live inference first. Keep both LaunchDesk instances running. Runs normally finish well within the allocated segments; describe actual elapsed values instead of promising a duration.
+Before recording: `npm run dev:all`. Open http://127.0.0.1:3000. Confirm **Fixture mode** for the timed walkthrough below, or use the verified Groq live configuration. Keep both LaunchDesk instances running. Live inference can spend minutes waiting for provider quota: for a three-minute live presentation, create working/broken runs beforehand and open their recorded reports. Describe actual elapsed values instead of promising a duration.
 
 | Time      | Show                                                                                               | Say                                                                                                                                                                                                                                                           |
 | --------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -14,3 +14,5 @@ Before recording: `npm run dev:all`. Open http://127.0.0.1:3000. Confirm **Fixtu
 | 2:45–3:00 | Model panel / `.env.example` without secrets                                                       | “The adapter supports Gemma through OpenRouter or a local OpenAI-compatible endpoint. Open-weight models make provider choice possible. Fixture mode never silently becomes live mode, or the reverse. Live inference needs your configured endpoint or key.” |
 
 Do not display `.env` if it contains credentials. Do not present the fixture demonstration as live AI inference. Use [the worksheet](manual-baseline.md) for actual before/after measurements; there are no invented time-saving claims.
+
+For a live recording, identify **Groq / openai/gpt-oss-120b** in the model panel and say that real inference planned the goals and selected actions from observations. Open the actual live working and broken reports, explain their four assertions, then export. The [live verification record](live-verification.md) documents these outcomes and earlier diagnostic failures. OpenRouter and local inference are configurable but were not exercised with real inference during this verification.

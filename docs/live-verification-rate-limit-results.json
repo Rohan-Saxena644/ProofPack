@@ -1,0 +1,22 @@
+{
+  "verifiedAt": "2026-10-23T12:13:21.105Z",
+  "mode": "live",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "catalog": {
+    "id": "openai/gpt-oss-120b",
+    "provider": "groq",
+    "format": "json_schema",
+    "contextLength": 131072,
+    "supportedParameters": null
+  },
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\live-verification\\c59cf0c6-def0-440f-b18e-55d06941cd1f",
+  "results": [
+    {
+      "check": "Verification stopped at an unexpected result",
+      "verified": false,
+      "inference": "live",
+      "detail": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'blocked'\n- 'passed'\n"
+    }
+  ]
+}

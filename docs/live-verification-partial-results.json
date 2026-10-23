@@ -1,0 +1,50 @@
+{
+  "verifiedAt": "2026-10-23T12:24:08.388Z",
+  "mode": "live",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "catalog": {
+    "id": "openai/gpt-oss-120b",
+    "provider": "groq",
+    "format": "json_schema",
+    "contextLength": 131072,
+    "supportedParameters": null
+  },
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\live-verification\\0b219a2d-7f58-4504-abf3-90a7710e618c",
+  "results": [
+    {
+      "check": "Working persistence with explicit creation/logout/fresh-login/persistence coverage",
+      "verified": true,
+      "runId": "76d19837-8358-4d7c-a7cc-14d5147475bd",
+      "observedStatus": "passed",
+      "inference": "live"
+    },
+    {
+      "check": "Broken persistence fails only at the observed missing project after fresh login",
+      "verified": true,
+      "runId": "e42adbfb-0dba-4f33-9567-63f46b31b883",
+      "observedStatus": "failed",
+      "inference": "live"
+    },
+    {
+      "check": "Unreachable target after live planning is Blocked",
+      "verified": true,
+      "runId": "159a5cd3-f645-412f-b7c9-41b2b34c6244",
+      "observedStatus": "blocked",
+      "inference": "live"
+    },
+    {
+      "check": "Cancellation after a real live decision starts no further browser actions",
+      "verified": true,
+      "runId": "fa9998de-35b1-45bd-bbd3-e45897f5a9c4",
+      "observedStatus": "cancelled",
+      "inference": "live + deterministic cancellation timing"
+    },
+    {
+      "check": "Verification stopped at an unexpected result",
+      "verified": false,
+      "inference": "live",
+      "detail": "The expression evaluated to a falsy value:\n\n  results.push({\n  check: 'Cancellation after a real live decision starts no further browser actions',\n  verified: true,\n  runId: cancelRun.id,\n  observedStatus: cancelled.status,\n  inference: 'live + deterministic cancellation timing',\n  })\n"
+    }
+  ]
+}

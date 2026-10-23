@@ -1,0 +1,27 @@
+{
+  "verifiedAt": "2026-10-23T15:43:36.136Z",
+  "mode": "live",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "workingRunId": "6e3eba31-41b8-4b3a-9293-c0b9d151a80d",
+  "brokenRunId": "7f95e3c0-ef72-4eab-aa90-0bb2298cf1a7",
+  "observedStatus": "blocked",
+  "attempts": [
+    {
+      "number": 1,
+      "status": "blocked",
+      "error": "Model decision failed after 3 bounded attempts: Model provider rate limited the request (HTTP 429). Retry delay: 14s."
+    }
+  ],
+  "assertions": [
+    {
+      "description": "Project {{project}} appears in the project list after creation",
+      "passed": true
+    },
+    {
+      "description": "Browser navigates to the login page after logout",
+      "passed": true
+    }
+  ],
+  "note": "Dashboard verification stopped before the expected persistence failure because of provider throttling. Original attempt retained; explicit fresh-attempt retry is separate."
+}

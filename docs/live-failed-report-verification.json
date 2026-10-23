@@ -1,0 +1,19 @@
+{
+  "verifiedAt": "2026-10-23T15:47:18.493Z",
+  "runId": "7f95e3c0-ef72-4eab-aa90-0bb2298cf1a7",
+  "mode": "live",
+  "attempts": [
+    {
+      "number": 1,
+      "status": "blocked"
+    },
+    {
+      "number": 2,
+      "status": "failed"
+    }
+  ],
+  "finalAssertionsPassed": 3,
+  "finalAssertionsTotal": 4,
+  "originalBlockedReasonVisible": true,
+  "failedReportVisible": true
+}

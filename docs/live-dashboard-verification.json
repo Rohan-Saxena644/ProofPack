@@ -1,0 +1,22 @@
+{
+  "verifiedAt": "2026-10-23T15:46:09.530Z",
+  "mode": "live",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "base": "http://127.0.0.1:3000",
+  "passId": "6e3eba31-41b8-4b3a-9293-c0b9d151a80d",
+  "failId": "7f95e3c0-ef72-4eab-aa90-0bb2298cf1a7",
+  "reusedPassId": "6e3eba31-41b8-4b3a-9293-c0b9d151a80d",
+  "retriedRunId": "7f95e3c0-ef72-4eab-aa90-0bb2298cf1a7",
+  "checks": [
+    "Saved passing run revalidated, including live persistence coverage",
+    "Report screen, masked evidence endpoints, HTML/Markdown exports and trace download",
+    "Explicit UI retry preserves the original blocked attempt and uses fresh test data",
+    "Broken demo → failed assertion and actual failure evidence",
+    "HTTP cancellation reaches the worker / queued state",
+    "API rejects forbidden targets and cross-origin writes",
+    "History shows persisted working, broken and cancelled runs",
+    "390px mobile layout has no horizontal page overflow",
+    "No browser page errors during dashboard workflow"
+  ]
+}
