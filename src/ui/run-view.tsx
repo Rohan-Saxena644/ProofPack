@@ -1,18 +1,464 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, CircleAlert, Clock3, Download, ExternalLink, FileCheck2, ImageIcon, LoaderCircle, RotateCcw, Square, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CircleAlert,
+  Clock3,
+  Download,
+  ExternalLink,
+  FileCheck2,
+  ImageIcon,
+  LoaderCircle,
+  RotateCcw,
+  Square,
+  X,
+} from 'lucide-react';
 import type { RunDetail } from '@/core/contracts';
 import { Shell, Badge, duration, getJson } from './shared';
 export function RunView({ id, report = false }: { id: string; report?: boolean }) {
-  const [detail, setDetail] = useState<RunDetail | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
-  useEffect(() => { let active = true; const refresh = async () => { try { const d = await getJson<RunDetail>(`/api/runs/${id}`); if (active) { setDetail(d); setError(''); } } catch (e) { if (active) setError((e as Error).message); } }; void refresh(); const timer = setInterval(refresh, 1500); return () => { active = false; clearInterval(timer); }; }, [id]);
-  const mutate = async (action: string) => { setBusy(true); try { await getJson(`/api/runs/${id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); setDetail(await getJson(`/api/runs/${id}`)); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } };
-  if (!detail) return <Shell><Link href="/" className="back-link"><ArrowLeft size={16}/>Back to workspace</Link>{error ? <div role="alert" className="error-box">{error}</div> : <div className="empty-state"><LoaderCircle className="spin"/>Loading run evidence…</div>}</Shell>;
-  const { run, attempts, events, assertions, artifacts, modelCalls } = detail, attempt = attempts.at(-1);
-  const live = ['queued', 'planning', 'running'].includes(run.status), steps = events.filter(e => e.type === 'step');
-  const currentAssertions = assertions.filter(a => a.attemptId === attempt?.id), shots = artifacts.filter(a => a.kind === 'screenshot');
+  const [detail, setDetail] = useState<RunDetail | null>(null),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const d = await getJson<RunDetail>(`/api/runs/${id}`);
+        if (active) {
+          setDetail(d);
+          setError('');
+        }
+      } catch (e) {
+        if (active) setError((e as Error).message);
+      }
+    };
+    void refresh();
+    const timer = setInterval(refresh, 1500);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [id]);
+  const mutate = async (action: string) => {
+    setBusy(true);
+    try {
+      await getJson(`/api/runs/${id}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      setDetail(await getJson(`/api/runs/${id}`));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!detail)
+    return (
+      <Shell>
+        <Link href="/" className="back-link">
+          <ArrowLeft size={16} />
+          Back to workspace
+        </Link>
+        {error ? (
+          <div role="alert" className="error-box">
+            {error}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <LoaderCircle className="spin" />
+            Loading run evidence…
+          </div>
+        )}
+      </Shell>
+    );
+  const { run, attempts, events, assertions, artifacts, modelCalls } = detail,
+    attempt = attempts.at(-1);
+  const live = ['queued', 'planning', 'running'].includes(run.status),
+    steps = events.filter((e) => e.type === 'step');
+  const currentAssertions = assertions.filter((a) => a.attemptId === attempt?.id),
+    shots = artifacts.filter((a) => a.kind === 'screenshot');
   const required = attempt?.plan?.assertions ?? [];
-  const tokens = modelCalls.some(c => c.inputTokens !== null) ? modelCalls.reduce((sum, c) => sum + (c.inputTokens ?? 0) + (c.outputTokens ?? 0), 0).toLocaleString() : 'Unavailable';
-  return <Shell mode={run.mode}><Link href="/" className="back-link"><ArrowLeft size={16}/>Back to workspace</Link><div className="detail-heading"><div><div className="eyebrow">{report ? 'THE EVIDENCE, ALL TOGETHER' : 'EVERY STEP LEAVES A TRAIL'}</div><h1>{attempt?.plan?.name ?? (run.status === 'queued' ? 'Your demonstration is queued.' : 'Preparing your demonstration…')}</h1><p><a href={run.targetUrl} target="_blank" rel="noreferrer">{run.targetUrl}<ExternalLink size={13}/></a><span className="slash">/</span>{run.id.slice(0, 8)}<span className="slash">/</span>{run.mode.toUpperCase()} MODE</p></div><Badge status={run.status}/></div><div className="detail-toolbar"><div className="view-tabs"><Link className={!report ? 'selected' : ''} href={`/runs/${id}`}>Execution timeline</Link><Link className={report ? 'selected' : ''} href={`/runs/${id}/report`}>Evidence report</Link></div><div className="toolbar-actions">{live ? <button className="secondary-button" disabled={busy || run.cancelRequested} onClick={() => mutate('cancel')}><Square size={13}/>{run.cancelRequested ? 'Stopping…' : 'Cancel run'}</button> : ['blocked', 'failed', 'interrupted'].includes(run.status) && <button disabled={busy} className="secondary-button" onClick={() => mutate('retry')}><RotateCcw size={14}/>Retry in fresh attempt</button>}<a className="secondary-button" href={`/api/runs/${id}/report?format=md`}><Download size={14}/>Markdown</a><a className="primary-button" href={`/api/runs/${id}/report?format=html`}><Download size={14}/>Export HTML</a></div></div>{error && <div role="alert" className="error-box">{error}</div>}{run.mode === 'fixture' && <div className="info-banner"><CircleAlert size={17}/><span><strong>Fixture mode.</strong> Real browser execution with deterministic LaunchDesk decisions. No live inference was used.</span></div>}{attempt?.error && <div className={run.status === 'failed' ? 'error-box' : 'warning-box'} role="status"><strong>{run.status === 'failed' ? 'An executable assertion contradicted the expected behavior.' : `Run ${run.status}.`}</strong><p>{attempt.error}</p></div>}{run.status === 'queued' && <div className="info-banner"><LoaderCircle className="spin" size={17}/><span>Waiting for a worker. Start it with <code>npm run worker</code> in a separate terminal.</span></div>}<div className="stats-row"><div><span>ELAPSED</span><strong><Clock3 size={18}/>{duration(attempt?.startedAt ?? run.createdAt, live ? undefined : attempt?.finishedAt ?? run.updatedAt)}</strong></div><div><span>ASSERTIONS PASSED</span><strong><Check size={19}/>{currentAssertions.filter(a => a.passed).length}<small>/ {required.length}</small></strong></div><div><span>MODEL CALLS</span><strong>{modelCalls.length}<small>{run.mode}</small></strong></div><div><span>TOKENS IN + OUT</span><strong className="token-value">{tokens}</strong></div><div><span>EVIDENCE</span><strong>{shots.length}<small>screenshots</small></strong></div></div>{report && <section className="panel report-request"><h2>What was requested</h2><p>{run.brief}</p><h3>Expected outcomes</h3><p>{run.expected}</p><div className="quiet-note"><CircleAlert size={17}/><p>This report covers the recorded checks. It does not establish untested behavior or an underlying code-level root cause.</p></div></section>}<section className="panel assertion-panel"><div className="panel-heading"><FileCheck2 size={19}/><h2>Assertion ledger</h2><span className="muted small">Executable checks · attempt {attempt?.number ?? '—'}</span></div>{required.length ? <div className="table-scroll"><table className="assertion-table"><thead><tr><th>REQUIRED CHECK</th><th>OBSERVED EVIDENCE</th><th>RESULT</th></tr></thead><tbody>{required.map(spec => { const a = currentAssertions.find(a => a.specId === spec.id); return <tr key={spec.id}><td><strong>{spec.description}</strong><small>Expected: {a?.expected ?? spec.expected}</small></td><td>{a?.actual ?? 'Not exercised yet'}<div>{a?.evidenceIds.map(e => <a key={e} className="evidence-link" href={`/api/artifacts/${e}`} target="_blank" rel="noreferrer"><ImageIcon size={12}/>Screenshot {e.slice(0, 8)}</a>)}</div></td><td>{a ? <Badge status={a.passed ? 'passed' : 'failed'}/> : <span className="unverified">Unverified</span>}</td></tr>; })}</tbody></table></div> : <div className="panel-empty">The scenario’s required checks will appear after planning.</div>}</section><div className="run-columns"><section className="panel timeline-panel"><div className="panel-heading"><h2>{report ? 'What was actually exercised' : 'Live execution'}</h2><span className="muted small">{steps.length} steps</span></div><div className="timeline">{steps.length === 0 ? <div className="panel-empty">{live ? 'Preparing the browser and scenario…' : 'No browser actions were executed.'}</div> : steps.map((step, i) => <div className={`timeline-step ${step.outcome}`} key={step.id}><span className="timeline-marker">{step.outcome === 'running' ? <LoaderCircle className="spin" size={13}/> : step.outcome === 'failed' || step.outcome === 'blocked' ? <X size={13}/> : <Check size={13}/>}</span><div><div className="step-kicker">STEP {String(i + 1).padStart(2, '0')} · ATTEMPT {attempts.find(a => a.id === step.attemptId)?.number}<time>{step.finishedAt ? `${((step.finishedAt - step.startedAt) / 1000).toFixed(1)}s` : 'In progress'}</time></div><strong>{step.description}</strong>{typeof step.data.locator === 'string' && <code>{step.data.locator}</code>}{typeof step.data.error === 'string' && <p className="step-error">{step.data.error}</p>}{Array.isArray(step.data.evidenceIds) && <div>{step.data.evidenceIds.map(e => <a key={String(e)} className="evidence-link" href={`/api/artifacts/${e}`} target="_blank" rel="noreferrer"><ImageIcon size={12}/>Evidence {String(e).slice(0, 8)}</a>)}</div>}</div></div>)}</div></section><aside><section className="panel screenshot-panel"><div className="panel-heading"><h2>Captured evidence</h2><span className="count-pill">{shots.length}</span></div>{shots.length ? <div className="screenshot-list">{[...shots].reverse().map(a => <a key={a.id} href={`/api/artifacts/${a.id}`} target="_blank" rel="noreferrer"><img src={`/api/artifacts/${a.id}`} alt={a.label} loading="lazy"/><span>{a.label}<ArrowRight size={13}/></span></a>)}</div> : <div className="panel-empty"><ImageIcon size={24}/><p>Screenshots appear as the browser reaches meaningful milestones.</p></div>}</section><section className="panel trace-panel"><h3>Playwright traces</h3><p>Download a trace for local inspection with <code>npx playwright show-trace &lt;file.zip&gt;</code>.</p>{artifacts.filter(a => a.kind === 'trace').map(a => <a className="trace-link" key={a.id} href={`/api/artifacts/${a.id}`}><Download size={15}/>{a.label}</a>)}{!artifacts.some(a => a.kind === 'trace') && <small>Available when a browser context can be finalized.</small>}</section></aside></div><section className="panel metadata-panel"><h2>Attempts & model metadata</h2><p>Retries keep prior evidence. Each attempt uses fresh accounts and browser state.</p>{attempts.map(a => <div className="attempt-line" key={a.id}><strong>Attempt {a.number}</strong><Badge status={a.status}/><span>{a.error ?? 'Isolated browser session'}</span></div>)}<details><summary>Inspect {modelCalls.length} recorded model calls</summary><div className="table-scroll"><table className="assertion-table"><thead><tr><th>STAGE</th><th>ACTUAL PROVIDER / MODEL</th><th>LATENCY</th><th>TOKENS IN / OUT</th></tr></thead><tbody>{modelCalls.map(c => <tr key={c.id}><td>{c.stage} · {c.valid ? 'valid' : 'invalid'}</td><td>{c.provider} / {c.model}</td><td>{c.latencyMs}ms</td><td>{c.inputTokens ?? 'unavailable'} / {c.outputTokens ?? 'unavailable'}</td></tr>)}</tbody></table></div></details><details><summary>Browser diagnostics & execution notes</summary>{events.filter(e => !['step', 'goal', 'plan'].includes(e.type)).map(e => <div className="diagnostic" key={e.id}><strong>{e.type}</strong> {e.description}<pre>{JSON.stringify(e.data, null, 2)}</pre></div>)}</details></section></Shell>;
+  const tokens = modelCalls.some((c) => c.inputTokens !== null)
+    ? modelCalls
+        .reduce((sum, c) => sum + (c.inputTokens ?? 0) + (c.outputTokens ?? 0), 0)
+        .toLocaleString()
+    : 'Unavailable';
+  return (
+    <Shell mode={run.mode}>
+      <Link href="/" className="back-link">
+        <ArrowLeft size={16} />
+        Back to workspace
+      </Link>
+      <div className="detail-heading">
+        <div>
+          <div className="eyebrow">
+            {report ? 'THE EVIDENCE, ALL TOGETHER' : 'EVERY STEP LEAVES A TRAIL'}
+          </div>
+          <h1>
+            {attempt?.plan?.name ??
+              (run.status === 'queued'
+                ? 'Your demonstration is queued.'
+                : 'Preparing your demonstration…')}
+          </h1>
+          <p>
+            <a href={run.targetUrl} target="_blank" rel="noreferrer">
+              {run.targetUrl}
+              <ExternalLink size={13} />
+            </a>
+            <span className="slash">/</span>
+            {run.id.slice(0, 8)}
+            <span className="slash">/</span>
+            {run.mode.toUpperCase()} MODE
+          </p>
+        </div>
+        <Badge status={run.status} />
+      </div>
+      <div className="detail-toolbar">
+        <div className="view-tabs">
+          <Link className={!report ? 'selected' : ''} href={`/runs/${id}`}>
+            Execution timeline
+          </Link>
+          <Link className={report ? 'selected' : ''} href={`/runs/${id}/report`}>
+            Evidence report
+          </Link>
+        </div>
+        <div className="toolbar-actions">
+          {live ? (
+            <button
+              className="secondary-button"
+              disabled={busy || run.cancelRequested}
+              onClick={() => mutate('cancel')}
+            >
+              <Square size={13} />
+              {run.cancelRequested ? 'Stopping…' : 'Cancel run'}
+            </button>
+          ) : (
+            ['blocked', 'failed', 'interrupted'].includes(run.status) && (
+              <button disabled={busy} className="secondary-button" onClick={() => mutate('retry')}>
+                <RotateCcw size={14} />
+                Retry in fresh attempt
+              </button>
+            )
+          )}
+          <a className="secondary-button" href={`/api/runs/${id}/report?format=md`}>
+            <Download size={14} />
+            Markdown
+          </a>
+          <a className="primary-button" href={`/api/runs/${id}/report?format=html`}>
+            <Download size={14} />
+            Export HTML
+          </a>
+        </div>
+      </div>
+      {error && (
+        <div role="alert" className="error-box">
+          {error}
+        </div>
+      )}
+      {run.mode === 'fixture' && (
+        <div className="info-banner">
+          <CircleAlert size={17} />
+          <span>
+            <strong>Fixture mode.</strong> Real browser execution with deterministic LaunchDesk
+            decisions. No live inference was used.
+          </span>
+        </div>
+      )}
+      {attempt?.error && (
+        <div className={run.status === 'failed' ? 'error-box' : 'warning-box'} role="status">
+          <strong>
+            {run.status === 'failed'
+              ? 'An executable assertion contradicted the expected behavior.'
+              : `Run ${run.status}.`}
+          </strong>
+          <p>{attempt.error}</p>
+        </div>
+      )}
+      {run.status === 'queued' && (
+        <div className="info-banner">
+          <LoaderCircle className="spin" size={17} />
+          <span>
+            Waiting for a worker. Start it with <code>npm run worker</code> in a separate terminal.
+          </span>
+        </div>
+      )}
+      <div className="stats-row">
+        <div>
+          <span>ELAPSED</span>
+          <strong>
+            <Clock3 size={18} />
+            {duration(
+              attempt?.startedAt ?? run.createdAt,
+              live ? undefined : (attempt?.finishedAt ?? run.updatedAt),
+            )}
+          </strong>
+        </div>
+        <div>
+          <span>ASSERTIONS PASSED</span>
+          <strong>
+            <Check size={19} />
+            {currentAssertions.filter((a) => a.passed).length}
+            <small>/ {required.length}</small>
+          </strong>
+        </div>
+        <div>
+          <span>MODEL CALLS</span>
+          <strong>
+            {modelCalls.length}
+            <small>{run.mode}</small>
+          </strong>
+        </div>
+        <div>
+          <span>TOKENS IN + OUT</span>
+          <strong className="token-value">{tokens}</strong>
+        </div>
+        <div>
+          <span>EVIDENCE</span>
+          <strong>
+            {shots.length}
+            <small>screenshots</small>
+          </strong>
+        </div>
+      </div>
+      {report && (
+        <section className="panel report-request">
+          <h2>What was requested</h2>
+          <p>{run.brief}</p>
+          <h3>Expected outcomes</h3>
+          <p>{run.expected}</p>
+          <div className="quiet-note">
+            <CircleAlert size={17} />
+            <p>
+              This report covers the recorded checks. It does not establish untested behavior or an
+              underlying code-level root cause.
+            </p>
+          </div>
+        </section>
+      )}
+      <section className="panel assertion-panel">
+        <div className="panel-heading">
+          <FileCheck2 size={19} />
+          <h2>Assertion ledger</h2>
+          <span className="muted small">Executable checks · attempt {attempt?.number ?? '—'}</span>
+        </div>
+        {required.length ? (
+          <div className="table-scroll">
+            <table className="assertion-table">
+              <thead>
+                <tr>
+                  <th>REQUIRED CHECK</th>
+                  <th>OBSERVED EVIDENCE</th>
+                  <th>RESULT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {required.map((spec) => {
+                  const a = currentAssertions.find((a) => a.specId === spec.id);
+                  return (
+                    <tr key={spec.id}>
+                      <td>
+                        <strong>{spec.description}</strong>
+                        <small>Expected: {a?.expected ?? spec.expected}</small>
+                      </td>
+                      <td>
+                        {a?.actual ?? 'Not exercised yet'}
+                        <div>
+                          {a?.evidenceIds.map((e) => (
+                            <a
+                              key={e}
+                              className="evidence-link"
+                              href={`/api/artifacts/${e}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <ImageIcon size={12} />
+                              Screenshot {e.slice(0, 8)}
+                            </a>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        {a ? (
+                          <Badge status={a.passed ? 'passed' : 'failed'} />
+                        ) : (
+                          <span className="unverified">Unverified</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="panel-empty">
+            The scenario’s required checks will appear after planning.
+          </div>
+        )}
+      </section>
+      <div className="run-columns">
+        <section className="panel timeline-panel">
+          <div className="panel-heading">
+            <h2>{report ? 'What was actually exercised' : 'Live execution'}</h2>
+            <span className="muted small">{steps.length} steps</span>
+          </div>
+          <div className="timeline">
+            {steps.length === 0 ? (
+              <div className="panel-empty">
+                {live ? 'Preparing the browser and scenario…' : 'No browser actions were executed.'}
+              </div>
+            ) : (
+              steps.map((step, i) => (
+                <div className={`timeline-step ${step.outcome}`} key={step.id}>
+                  <span className="timeline-marker">
+                    {step.outcome === 'running' ? (
+                      <LoaderCircle className="spin" size={13} />
+                    ) : step.outcome === 'failed' || step.outcome === 'blocked' ? (
+                      <X size={13} />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                  </span>
+                  <div>
+                    <div className="step-kicker">
+                      STEP {String(i + 1).padStart(2, '0')} · ATTEMPT{' '}
+                      {attempts.find((a) => a.id === step.attemptId)?.number}
+                      <time>
+                        {step.finishedAt
+                          ? `${((step.finishedAt - step.startedAt) / 1000).toFixed(1)}s`
+                          : 'In progress'}
+                      </time>
+                    </div>
+                    <strong>{step.description}</strong>
+                    {typeof step.data.locator === 'string' && <code>{step.data.locator}</code>}
+                    {typeof step.data.error === 'string' && (
+                      <p className="step-error">{step.data.error}</p>
+                    )}
+                    {Array.isArray(step.data.evidenceIds) && (
+                      <div>
+                        {step.data.evidenceIds.map((e) => (
+                          <a
+                            key={String(e)}
+                            className="evidence-link"
+                            href={`/api/artifacts/${e}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <ImageIcon size={12} />
+                            Evidence {String(e).slice(0, 8)}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+        <aside>
+          <section className="panel screenshot-panel">
+            <div className="panel-heading">
+              <h2>Captured evidence</h2>
+              <span className="count-pill">{shots.length}</span>
+            </div>
+            {shots.length ? (
+              <div className="screenshot-list">
+                {[...shots].reverse().map((a) => (
+                  <a key={a.id} href={`/api/artifacts/${a.id}`} target="_blank" rel="noreferrer">
+                    <img src={`/api/artifacts/${a.id}`} alt={a.label} loading="lazy" />
+                    <span>
+                      {a.label}
+                      <ArrowRight size={13} />
+                    </span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="panel-empty">
+                <ImageIcon size={24} />
+                <p>Screenshots appear as the browser reaches meaningful milestones.</p>
+              </div>
+            )}
+          </section>
+          <section className="panel trace-panel">
+            <h3>Playwright traces</h3>
+            <p>
+              Download a trace for local inspection with{' '}
+              <code>npx playwright show-trace &lt;file.zip&gt;</code>.
+            </p>
+            {artifacts
+              .filter((a) => a.kind === 'trace')
+              .map((a) => (
+                <a className="trace-link" key={a.id} href={`/api/artifacts/${a.id}`}>
+                  <Download size={15} />
+                  {a.label}
+                </a>
+              ))}
+            {!artifacts.some((a) => a.kind === 'trace') && (
+              <small>Available when a browser context can be finalized.</small>
+            )}
+          </section>
+        </aside>
+      </div>
+      <section className="panel metadata-panel">
+        <h2>Attempts & model metadata</h2>
+        <p>Retries keep prior evidence. Each attempt uses fresh accounts and browser state.</p>
+        {attempts.map((a) => (
+          <div className="attempt-line" key={a.id}>
+            <strong>Attempt {a.number}</strong>
+            <Badge status={a.status} />
+            <span>{a.error ?? 'Isolated browser session'}</span>
+          </div>
+        ))}
+        <details>
+          <summary>Inspect {modelCalls.length} recorded model calls</summary>
+          <div className="table-scroll">
+            <table className="assertion-table">
+              <thead>
+                <tr>
+                  <th>STAGE</th>
+                  <th>ACTUAL PROVIDER / MODEL</th>
+                  <th>LATENCY</th>
+                  <th>TOKENS IN / OUT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modelCalls.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      {c.stage} · {c.valid ? 'valid' : 'invalid'}
+                    </td>
+                    <td>
+                      {c.provider} / {c.model}
+                    </td>
+                    <td>{c.latencyMs}ms</td>
+                    <td>
+                      {c.inputTokens ?? 'unavailable'} / {c.outputTokens ?? 'unavailable'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+        <details>
+          <summary>Browser diagnostics & execution notes</summary>
+          {events
+            .filter((e) => !['step', 'goal', 'plan'].includes(e.type))
+            .map((e) => (
+              <div className="diagnostic" key={e.id}>
+                <strong>{e.type}</strong> {e.description}
+                <pre>{JSON.stringify(e.data, null, 2)}</pre>
+              </div>
+            ))}
+        </details>
+      </section>
+    </Shell>
+  );
 }

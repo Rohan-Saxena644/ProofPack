@@ -1,0 +1,17 @@
+{
+  "verifiedAt": "2026-10-23T11:19:28.578Z",
+  "mode": "fixture",
+  "base": "http://127.0.0.1:3000",
+  "passId": "8ddd77b9-9d89-4627-bf64-0172ecbdc6f3",
+  "failId": "f557e989-ba4c-4e6a-9a0c-10370d238b8b",
+  "checks": [
+    "New-run form → persisted queue → separate worker → passing run details",
+    "Report screen, masked evidence endpoints, HTML/Markdown exports and trace download",
+    "Broken demo form → failed assertion and actual failure evidence",
+    "HTTP cancellation reaches the worker / queued state",
+    "API rejects forbidden targets and cross-origin writes",
+    "History shows persisted working, broken and cancelled runs",
+    "390px mobile layout has no horizontal page overflow",
+    "No browser page errors during dashboard workflow"
+  ]
+}
