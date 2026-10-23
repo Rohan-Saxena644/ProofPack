@@ -41,7 +41,10 @@ export function reportData(detail: RunDetail) {
         ? [
             'FIXTURE MODE: deterministic LaunchDesk planning and decisions; no live AI inference was used.',
           ]
-        : ['Live model decisions were used. The assertion ledger determines the outcome.']),
+        : [
+            'Live mode selected. Model-call records show validated responses; no fixture fallback was used. The assertion ledger determines the outcome.',
+          ]),
+      ...detail.events.filter((e) => e.type === 'verification_fault').map((e) => e.description),
       'This report covers the actions and explicit checks shown here. It does not establish other product behavior.',
       'Observed failures do not establish an underlying code-level root cause.',
       'Trace snapshots and trace screenshots are disabled to reduce secret exposure. Separate masked screenshots are retained.',

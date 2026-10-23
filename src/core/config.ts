@@ -5,7 +5,7 @@ import { z } from 'zod';
 const integer = (fallback: number, min = 1) => z.coerce.number().int().min(min).default(fallback);
 const envSchema = z.object({
   MODEL_MODE: z.enum(['fixture', 'live']).default('fixture'),
-  MODEL_PROVIDER: z.enum(['openrouter', 'local']).default('openrouter'),
+  MODEL_PROVIDER: z.enum(['openrouter', 'groq', 'local']).default('openrouter'),
   MODEL_BASE_URL: z.url().default('https://openrouter.ai/api/v1'),
   MODEL_ID: z.string().default('google/gemma-3-27b-it'),
   MODEL_API_KEY: z.string().default(''),
@@ -22,7 +22,12 @@ const envSchema = z.object({
   ARTIFACT_DIR: z.string().default('./artifacts'),
 });
 export function loadConfig(overrides: Partial<z.input<typeof envSchema>> = {}) {
-  const e = envSchema.parse({ ...process.env, ...overrides });
+  const source = { ...process.env, ...overrides };
+  const providerDefaults =
+    source.MODEL_PROVIDER === 'groq'
+      ? { MODEL_BASE_URL: 'https://api.groq.com/openai/v1', MODEL_ID: 'openai/gpt-oss-20b' }
+      : {};
+  const e = envSchema.parse({ ...providerDefaults, ...source });
   return {
     ...e,
     databasePath: path.resolve(e.DATABASE_PATH),

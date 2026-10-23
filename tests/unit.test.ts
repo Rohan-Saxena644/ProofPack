@@ -10,7 +10,8 @@ import { allowedUrl } from '../src/execution/boundaries';
 import { assertionOutcome } from '../src/execution/runner';
 import { markdownReport, htmlReport, reportData } from '../src/reports/report';
 import { localRequest } from '../src/server/service';
-import { LiveAdapter, FixtureAdapter } from '../src/ai/model';
+import { LiveAdapter, FixtureAdapter, ModelSession } from '../src/ai/model';
+import { discoverModel, groqFormat, ProviderError, retryDelay } from '../src/ai/provider';
 import { redactTraceArchive } from '../src/execution/trace';
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 
@@ -278,5 +279,109 @@ test('live adapter sends schema, records actual provider metadata, and unwraps d
     assert.equal(actionSchema.parse(reply.value).type, 'capture');
   } finally {
     globalThis.fetch = original;
+  }
+});
+test('Groq discovers account models and sends strict output with reasoning token budget', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  try {
+    globalThis.fetch = async (url, init) => {
+      calls++;
+      assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer synthetic-key');
+      if (String(url).endsWith('/models'))
+        return Response.json({
+          data: [{ id: 'openai/gpt-oss-20b', active: true, context_window: 131072 }],
+        });
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.response_format.json_schema.strict, true);
+      assert.ok(body.response_format.json_schema.schema.properties.action.anyOf);
+      assert.ok(!JSON.stringify(body.response_format.json_schema.schema).includes('"oneOf"'));
+      assert.equal(body.max_completion_tokens, 2048);
+      assert.equal(body.reasoning_effort, 'low');
+      assert.equal(body.provider, undefined);
+      assert.equal(body.max_tokens, undefined);
+      return Response.json({
+        model: 'openai/gpt-oss-20b',
+        usage: { prompt_tokens: 25, completion_tokens: 10 },
+        choices: [
+          { message: { content: '{"action":{"type":"capture","description":"Capture"}}' } },
+        ],
+      });
+    };
+    const cfg = loadConfig({
+      MODEL_MODE: 'live',
+      MODEL_PROVIDER: 'groq',
+      MODEL_BASE_URL: 'https://api.groq.com/openai/v1',
+      MODEL_ID: 'openai/gpt-oss-20b',
+      MODEL_FORMAT: 'auto',
+      MODEL_API_KEY: 'synthetic-key',
+    });
+    const reply = await new LiveAdapter(cfg).request(
+      'decision',
+      {},
+      actionSchema,
+      null,
+      new AbortController().signal,
+    );
+    assert.equal(calls, 2);
+    assert.equal(reply.provider, 'groq');
+    assert.equal(reply.inputTokens, 25);
+    assert.equal(groqFormat('other-active-model'), 'json_object');
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+test('Groq rejects absent/inactive catalog models and missing credentials', async () => {
+  const original = globalThis.fetch;
+  const cfg = loadConfig({
+    MODEL_PROVIDER: 'groq',
+    MODEL_ID: 'openai/gpt-oss-20b',
+    MODEL_API_KEY: 'synthetic-key',
+  });
+  try {
+    globalThis.fetch = async () =>
+      Response.json({ data: [{ id: 'openai/gpt-oss-20b', active: false }] });
+    await assert.rejects(discoverModel(cfg, new AbortController().signal), /not active/);
+    await assert.rejects(
+      discoverModel({ ...cfg, MODEL_API_KEY: '' }, new AbortController().signal),
+      /requires MODEL_API_KEY/,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+test('rate limits retry within the model-call budget; auth errors stop after one request', async () => {
+  const s = store();
+  try {
+    s.create(input);
+    const claim = s.claim('model-negative-tests')!;
+    let calls = 0;
+    const session = new ModelSession(s.config, s, claim.attempt.id, new AbortController().signal, {
+      async request() {
+        calls++;
+        if (calls === 1) throw new ProviderError(429, 1);
+        return { value: fixturePlan, model: 'synthetic-model', provider: 'groq' };
+      },
+    });
+    await session.plan(input);
+    assert.equal(calls, 2);
+    const denied = new ModelSession(s.config, s, claim.attempt.id, new AbortController().signal, {
+      async request() {
+        throw new ProviderError(401);
+      },
+    });
+    await assert.rejects(denied.plan(input), /HTTP 401/);
+    assert.equal(denied.calls, 1);
+    const tooLong = new ModelSession(s.config, s, claim.attempt.id, new AbortController().signal, {
+      async request() {
+        throw new ProviderError(429, 61000);
+      },
+    });
+    await assert.rejects(tooLong.plan(input), /HTTP 429/);
+    assert.equal(tooLong.calls, 1);
+    assert.equal(retryDelay('2'), 2000);
+    assert.equal(s.detail(claim.run.id)!.modelCalls.length, 4);
+  } finally {
+    s.close();
   }
 });

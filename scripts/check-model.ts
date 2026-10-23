@@ -1,19 +1,16 @@
 import { loadConfig } from '../src/core/config';
+import { discoverModel } from '../src/ai/provider';
 const c = loadConfig();
-if (c.MODEL_PROVIDER === 'openrouter') {
-  const response = await fetch(`${c.MODEL_BASE_URL.replace(/\/$/, '')}/models`, {
-    signal: AbortSignal.timeout(c.MODEL_TIMEOUT_MS),
-  });
-  if (!response.ok) throw new Error(`Catalog returned HTTP ${response.status}`);
-  const catalog = await response.json(),
-    model = catalog.data?.find((m: { id: string }) => m.id === c.MODEL_ID);
-  if (!model) throw new Error('MODEL_ID is unavailable in the configured catalog.');
+if (c.MODEL_PROVIDER !== 'local') {
+  const model = await discoverModel(c, AbortSignal.timeout(c.MODEL_TIMEOUT_MS));
   console.log(
     JSON.stringify(
       {
         id: model.id,
-        supportedParameters: model.supported_parameters,
-        contextLength: model.context_length,
+        provider: model.provider,
+        outputFormat: model.format,
+        supportedParameters: model.supportedParameters,
+        contextLength: model.contextLength,
         note: 'Catalog check only. This does not verify inference or account access.',
       },
       null,

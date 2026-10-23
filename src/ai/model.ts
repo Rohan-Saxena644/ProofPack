@@ -4,6 +4,8 @@ import type { Store } from '../db/store';
 import { actionSchema, planSchema, type RunInput, type Plan, type Action } from '../core/contracts';
 import { fixturePlan, fixtureDecision, type DecisionInput } from './fixture';
 import { demoScenario } from '../core/demo';
+import { discoverModel, ProviderError, retryDelay, groqSchema } from './provider';
+import { setTimeout as delay } from 'node:timers/promises';
 
 export interface ModelReply {
   value: unknown;
@@ -28,23 +30,7 @@ export class LiveAdapter implements Adapter {
   constructor(readonly config: Config) {}
   async capabilities(signal: AbortSignal) {
     const c = this.config;
-    if (c.MODEL_PROVIDER === 'openrouter') {
-      if (!c.MODEL_API_KEY)
-        throw new Error(
-          'Live OpenRouter mode requires MODEL_API_KEY. No fixture fallback was used.',
-        );
-      const response = await fetch(`${c.MODEL_BASE_URL.replace(/\/$/, '')}/models`, { signal });
-      if (!response.ok) throw new Error(`Model discovery returned HTTP ${response.status}`);
-      const body = await response.json();
-      const model = body.data?.find((m: { id: string }) => m.id === c.MODEL_ID);
-      if (!model) throw new Error('Configured model is not in the provider model catalog.');
-      const supported: string[] = model.supported_parameters ?? [];
-      return supported.includes('structured_outputs')
-        ? 'json_schema'
-        : supported.includes('response_format')
-          ? 'json_object'
-          : 'none';
-    }
+    if (c.MODEL_PROVIDER !== 'local') return (await discoverModel(c, signal)).format;
     return c.MODEL_FORMAT === 'auto' ? 'none' : c.MODEL_FORMAT;
   }
   async request(
@@ -55,12 +41,15 @@ export class LiveAdapter implements Adapter {
     signal: AbortSignal,
   ): Promise<ModelReply> {
     const c = this.config;
+    if (c.MODEL_PROVIDER !== 'local' && !c.MODEL_API_KEY)
+      throw new Error(
+        `Live ${c.MODEL_PROVIDER} mode requires MODEL_API_KEY. No fixture fallback was used.`,
+      );
     const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(c.MODEL_TIMEOUT_MS)]);
     this.format ??=
       c.MODEL_FORMAT === 'auto' ? await this.capabilities(requestSignal) : c.MODEL_FORMAT;
-    if (c.MODEL_PROVIDER === 'openrouter' && !c.MODEL_API_KEY)
-      throw new Error('Live mode requires MODEL_API_KEY.');
-    const jsonSchema = z.toJSONSchema(schema, { target: 'draft-7' });
+    const rawSchema = z.toJSONSchema(schema, { target: 'draft-7' });
+    const jsonSchema = c.MODEL_PROVIDER === 'groq' ? groqSchema(rawSchema) : rawSchema;
     // Some providers require an object at the schema root, so wrap action unions.
     const schemaBody =
       stage === 'decision'
@@ -81,7 +70,14 @@ export class LiveAdapter implements Adapter {
       body: JSON.stringify({
         model: c.MODEL_ID,
         temperature: 0,
-        max_tokens: stage === 'plan' ? 3000 : 900,
+        ...(c.MODEL_PROVIDER === 'groq'
+          ? {
+              max_completion_tokens: stage === 'plan' ? 4096 : 2048,
+              ...(/^openai\/gpt-oss-(20b|120b)$/.test(c.MODEL_ID)
+                ? { reasoning_effort: 'low' }
+                : {}),
+            }
+          : { max_tokens: stage === 'plan' ? 3000 : 900 }),
         ...(this.format === 'json_schema'
           ? {
               response_format: {
@@ -107,8 +103,9 @@ export class LiveAdapter implements Adapter {
       }),
     });
     if (!response.ok)
-      throw new Error(
-        `Model request returned HTTP ${response.status}. Response body omitted to protect credentials.`,
+      throw new ProviderError(
+        response.status,
+        response.status === 429 ? retryDelay(response.headers.get('retry-after')) : 0,
       );
     const body = await response.json();
     let value: unknown;
@@ -173,18 +170,28 @@ export class ModelSession {
       const start = Date.now();
       let reply: ModelReply | undefined;
       let error: string | null = null;
+      let retryWait = 0;
       try {
         reply = await this.adapter.request(stage, payload, schema, repair, this.signal);
         this.signal.throwIfAborted();
         const parsed = schema.safeParse(reply.value);
         if (!parsed.success)
-          throw new Error('Response did not match the allowed structured schema.');
+          throw new Error(
+            `Response did not match the allowed structured schema: ${parsed.error.issues
+              .slice(0, 4)
+              .map((issue) => `${issue.path.join('.') || 'root'}: ${issue.message}`)
+              .join('; ')}`,
+          );
         check?.(parsed.data);
         return parsed.data;
       } catch (e) {
         error = e instanceof Error ? e.message : 'Model output invalid';
         repair = error;
         if (this.signal.aborted) throw e;
+        if (e instanceof ProviderError) {
+          if (e.status !== 429 || e.retryAfterMs > 60000) throw e;
+          retryWait = e.retryAfterMs;
+        }
       } finally {
         this.store.modelCall({
           attemptId: this.attemptId,
@@ -200,6 +207,7 @@ export class ModelSession {
           error,
         });
       }
+      if (retryWait && i < 2) await delay(retryWait, undefined, { signal: this.signal });
     }
     throw new Error(`Model ${stage} failed after 3 bounded attempts: ${repair}`);
   }

@@ -233,7 +233,9 @@ export function Dashboard() {
                   ? 'Fixture mode'
                   : config?.provider === 'local'
                     ? 'Local model'
-                    : 'OpenRouter model'}
+                    : config?.provider === 'groq'
+                      ? 'Groq model'
+                      : 'OpenRouter model'}
             </h3>
             <p>
               {loading

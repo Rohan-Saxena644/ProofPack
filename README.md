@@ -63,7 +63,7 @@ flowchart LR
   API --> DB[(SQLite WAL)]
   DB --> Worker[Separate Node worker]
   Worker --> Planner[Validated scenario planner]
-  Planner --> Adapter[Fixture / OpenRouter / local adapter]
+  Planner --> Adapter[Fixture / OpenRouter / Groq / local adapter]
   Worker --> Observe[Bounded page observation]
   Observe --> Adapter
   Adapter --> Actions[Zod validated actions]
@@ -123,6 +123,21 @@ npm run model:check
 
 The live adapter probes the catalog in auto mode, requests a JSON schema when supported, and validates every response with Zod regardless of provider enforcement. Unsupported structured format combinations fail visibly. Missing/invalid output gets bounded repair opportunities. Actual provider, returned model ID, latency, and available usage are recorded per call; missing tokens and cost remain unavailable.
 
+For **Groq**, use the settings in [.env.groq.example](.env.groq.example):
+
+```dotenv
+MODEL_MODE=live
+MODEL_PROVIDER=groq
+MODEL_BASE_URL=https://api.groq.com/openai/v1
+MODEL_ID=openai/gpt-oss-20b
+MODEL_API_KEY=your-groq-key-here
+MODEL_FORMAT=auto
+```
+
+Put the real key only in the ignored `.env` file. Groq's current documentation lists GPT-OSS 20B as a production open-weight model with strict structured-output support. The adapter checks the account's model catalog, uses the documented schema subset while preserving full Zod validation, and reserves output tokens for reasoning. It honors HTTP 429 `Retry-After` within the three-attempt and total runtime budgets; an indicated delay over 60 seconds stops clearly. Authentication/configuration HTTP errors stop without repeated identical requests. Hosted page observations leave the machine for Groq just as they do for OpenRouter.
+
+After saving a key, run `npm run model:check`, then `npm run test:live`. Restart both dashboard and worker to use the new configuration. [Groq models](https://console.groq.com/docs/models) · [structured outputs](https://console.groq.com/docs/structured-outputs) · [rate limits](https://console.groq.com/docs/rate-limits)
+
 For a local OpenAI-compatible model server, load an instruction-tuned open model and configure its actual ID:
 
 ```dotenv
@@ -176,6 +191,10 @@ npm run test:dashboard
 ```
 
 This creates real working, failing, and cancelled runs through the local API/UI; checks exports, evidence downloads, history, forbidden requests, browser errors, and mobile layout; and captures screenshots. It is not a placeholder data generator. Use `npm run format` to format source.
+
+With live mode and credentials configured, `npm run test:live` starts isolated demos on **4300–4304** and makes real model requests. It checks working and broken persistence coverage, unreachable targets, cancellation after a live decision, bounded rejection of intentionally corrupted live responses, prompt injection/origin boundaries, exports, trace sanitation, and actual usage metadata. Injected corruption is explicitly labeled and is not presented as a natural model failure. This command consumes provider quota; errors and rate limits remain visible. Results are written only after execution to `docs/live-verification-results.json`, with HTML/Markdown artifacts under `data/live-verification/`.
+
+`test:dashboard` also supports live mode and checks actual persistence coverage rather than assuming fixture assertion IDs. Live screenshots/results use a `live-` filename prefix to preserve the recorded fixture evidence.
 
 [Actual verification record](docs/verification.md) · [machine-readable browser results](docs/verification-results.json) · [manual baseline worksheet](docs/manual-baseline.md)
 

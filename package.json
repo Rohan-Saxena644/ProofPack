@@ -22,6 +22,7 @@
     "lint": "eslint .",
     "test": "tsx --test tests/unit.test.ts",
     "test:e2e": "tsx scripts/verify.ts",
+    "test:live": "tsx scripts/verify-live.ts",
     "test:dashboard": "tsx scripts/smoke-dashboard.ts",
     "browsers": "playwright install chromium",
     "model:check": "tsx scripts/check-model.ts"

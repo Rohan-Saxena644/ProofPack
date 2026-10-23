@@ -3,22 +3,39 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import type { RunDetail } from '../src/core/contracts';
 import { demoScenario } from '../src/core/demo';
+import { verifyPersistenceCoverage } from './live-checks';
 
 const base = process.env.DASHBOARD_URL ?? 'http://127.0.0.1:3000';
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1080 } });
+const configResponse = await page.request.get(`${base}/api/config`);
+if (!configResponse.ok()) {
+  await browser.close();
+  throw new Error('Dashboard configuration is unavailable. Start the dashboard and worker.');
+}
+const config = (await configResponse.json()) as {
+  mode: 'fixture' | 'live';
+  provider: string;
+  model: string;
+  limits: { timeoutMs: number };
+};
+const liveMode = config.mode === 'live';
+const shotPrefix = liveMode ? 'live-' : '';
 const errors: string[] = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const checks: string[] = [];
 async function waitForRun(id: string) {
-  for (let i = 0; i < 100; i++) {
+  const deadline = Date.now() + config.limits.timeoutMs + 30000;
+  while (Date.now() < deadline) {
     const response = await page.request.get(`${base}/api/runs/${id}`);
     assert.ok(response.ok());
     const detail = (await response.json()) as RunDetail;
     if (!['queued', 'planning', 'running'].includes(detail.run.status)) return detail;
     await page.waitForTimeout(500);
   }
-  throw new Error('Dashboard job did not finish within 50 seconds. Start npm run worker.');
+  throw new Error(
+    'Dashboard job did not finish within its configured timeout. Check the separate worker.',
+  );
 }
 try {
   await mkdir('docs/screenshots', { recursive: true });
@@ -30,12 +47,16 @@ try {
   const passId = page.url().split('/').at(-1)!;
   const pass = await waitForRun(passId);
   assert.equal(pass.run.status, 'passed');
-  assert.equal(pass.assertions.length, 4);
+  if (liveMode) verifyPersistenceCoverage(pass);
+  else assert.equal(pass.assertions.length, 4);
   checks.push('New-run form → persisted queue → separate worker → passing run details');
   await page.getByRole('link', { name: 'Evidence report', exact: true }).click();
   await page.waitForURL(/\/report$/);
   await page.getByRole('heading', { name: 'What was requested' }).waitFor();
-  await page.screenshot({ path: 'docs/screenshots/evidence-report.png', fullPage: true });
+  await page.screenshot({
+    path: `docs/screenshots/${shotPrefix}evidence-report.png`,
+    fullPage: true,
+  });
   const html = await page.request.get(`${base}/api/runs/${passId}/report?format=html`);
   assert.ok(html.ok());
   assert.ok((await html.text()).includes('data:image/png;base64,'));
@@ -53,7 +74,8 @@ try {
   const failId = page.url().split('/').at(-1)!,
     fail = await waitForRun(failId);
   assert.equal(fail.run.status, 'failed');
-  assert.equal(fail.assertions.find((a) => a.specId === 'persisted')?.passed, false);
+  if (liveMode) verifyPersistenceCoverage(fail);
+  else assert.equal(fail.assertions.find((a) => a.specId === 'persisted')?.passed, false);
   checks.push('Broken demo form → failed assertion and actual failure evidence');
   const cancelResponse = await page.request.post(`${base}/api/runs`, {
     data: {
@@ -83,12 +105,23 @@ try {
   await page.goto(base);
   await page.getByRole('heading', { name: /Recent runs/ }).waitFor();
   await page.locator('.runs-table tbody tr').first().waitFor();
-  await page.getByRole('heading', { name: 'Fixture mode', exact: true }).waitFor();
-  await page.screenshot({ path: 'docs/screenshots/dashboard.png', fullPage: true });
+  await page
+    .getByRole('heading', {
+      name: liveMode
+        ? config.provider === 'groq'
+          ? 'Groq model'
+          : config.provider === 'local'
+            ? 'Local model'
+            : 'OpenRouter model'
+        : 'Fixture mode',
+      exact: true,
+    })
+    .waitFor();
+  await page.screenshot({ path: `docs/screenshots/${shotPrefix}dashboard.png`, fullPage: true });
   assert.ok((await page.locator('.runs-table tbody tr').count()) >= 3);
   checks.push('History shows persisted working, broken and cancelled runs');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: 'docs/screenshots/mobile.png', fullPage: true });
+  await page.screenshot({ path: `docs/screenshots/${shotPrefix}mobile.png`, fullPage: true });
   assert.equal(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     true,
@@ -97,9 +130,18 @@ try {
   assert.deepEqual(errors, []);
   checks.push('No browser page errors during dashboard workflow');
   await writeFile(
-    'docs/dashboard-verification.json',
+    `docs/${shotPrefix}dashboard-verification.json`,
     JSON.stringify(
-      { verifiedAt: new Date().toISOString(), mode: 'fixture', base, passId, failId, checks },
+      {
+        verifiedAt: new Date().toISOString(),
+        mode: config.mode,
+        provider: config.provider,
+        model: config.model,
+        base,
+        passId,
+        failId,
+        checks,
+      },
       null,
       2,
     ) + '\n',
