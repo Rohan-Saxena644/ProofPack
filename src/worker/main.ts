@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { loadConfig } from '../core/config';
 import { Store } from '../db/store';
 import { executeClaim } from '../execution/runner';
+import { processRetentionJob } from '../storage/retention';
 const config = loadConfig(),
   store = new Store(config),
   workerId = `${hostname()}-${randomUUID().slice(0, 8)}`;
@@ -12,6 +13,7 @@ process.on('SIGTERM', () => shutdown.abort());
 console.log(`ProofPack worker ${workerId} · ${config.MODEL_MODE} mode · waiting for jobs`);
 async function main() {
   while (!shutdown.signal.aborted) {
+    if (await processRetentionJob(store, shutdown.signal)) continue;
     const claim = store.claim(workerId);
     if (claim) {
       console.log(`Executing ${claim.run.id}, attempt ${claim.attempt.number}`);

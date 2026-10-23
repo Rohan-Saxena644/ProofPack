@@ -1754,3 +1754,6 @@ summary {
 .status-interrupted {
   color: #94712c;
 }
+.storage-stats {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}

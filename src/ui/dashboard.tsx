@@ -24,7 +24,9 @@ import type { publicConfig } from '@/core/config';
 import type { RunRecord } from '@/core/contracts';
 import { demoScenario } from '@/core/demo';
 import { Shell, Badge, duration, getJson } from './shared';
-type PublicConfig = ReturnType<typeof publicConfig>;
+type PublicConfig = ReturnType<typeof publicConfig> & {
+  quotaWait?: { until: number; reason: string } | null;
+};
 export function Dashboard() {
   const router = useRouter();
   const [config, setConfig] = useState<PublicConfig | null>(null),
@@ -249,13 +251,23 @@ export function Dashboard() {
               <code>{config?.model ?? 'Loading…'}</code>
             </div>
             <div className="model-footer">
-              <span className={config?.ready ? 'ready' : ''}>
-                {config?.ready ? '● Ready to run' : 'Configuration required'}
+              <span className={config?.ready && !config.quotaWait ? 'ready' : ''}>
+                {config?.quotaWait
+                  ? 'Provider cooldown'
+                  : config?.ready
+                    ? '● Ready to run'
+                    : 'Configuration required'}
               </span>
               <span>
                 {config?.mode === 'fixture' ? 'No API key needed' : 'Server configuration'}
               </span>
             </div>
+            {config?.quotaWait && (
+              <p className="small muted">
+                Queued runs will wait until {new Date(config.quotaWait.until).toLocaleTimeString()}{' '}
+                before starting.
+              </p>
+            )}
           </section>
           <section className="how-it-works">
             <div className="section-overline">FROM BRIEF TO PROOF</div>

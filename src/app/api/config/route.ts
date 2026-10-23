@@ -5,5 +5,5 @@ export function GET(req: Request) {
   if (!localRequest(req)) return forbidden();
   const store = getStore();
   store.reap();
-  return Response.json(publicConfig(store.config));
+  return Response.json({ ...publicConfig(store.config), quotaWait: store.quotaWait() });
 }

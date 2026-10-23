@@ -8,7 +8,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!detail) return Response.json({ error: 'Run not found' }, { status: 404 });
   const html = new URL(req.url).searchParams.get('format') === 'html';
   return new Response(
-    html ? htmlReport(detail, store.config.artifactDir) : markdownReport(detail),
+    html
+      ? htmlReport(detail, store.config.artifactDir, store.config.archiveDir)
+      : markdownReport(detail),
     {
       headers: {
         'Content-Type': html ? 'text/html; charset=utf-8' : 'text/markdown; charset=utf-8',

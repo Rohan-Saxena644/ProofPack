@@ -5,8 +5,8 @@ node_modules/
 .env.*
 !.env.example
 !.env.groq.example
-data/
-artifacts/
+/data/
+/artifacts/
 test-results/
 *.tsbuildinfo
 *.log

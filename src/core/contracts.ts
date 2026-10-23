@@ -144,6 +144,8 @@ export interface ArtifactRecord {
   filename: string;
   label: string;
   createdAt: number;
+  storage?: 'active' | 'archived' | 'expired';
+  archiveId?: string;
 }
 export interface ModelCall {
   id: string;
@@ -164,4 +166,13 @@ export interface RunDetail {
   assertions: AssertionRecord[];
   artifacts: ArtifactRecord[];
   modelCalls: ModelCall[];
+  cursor?: number;
+  retry?: { allowed: boolean; reason: string | null; remaining: number; maxAttempts: number };
+  queueWait?: { until: number; reason: string } | null;
+}
+export interface RunDelta {
+  cursor: number;
+  hasMore: boolean;
+  reset: boolean;
+  detail: RunDetail;
 }

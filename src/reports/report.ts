@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
+import { evidencePath } from '../storage/paths';
 import type { RunDetail } from '../core/contracts';
 import { assertionOutcome } from '../core/outcomes';
 export const escapeHtml = (v: unknown) =>
@@ -45,6 +45,11 @@ export function reportData(detail: RunDetail) {
             'Live mode selected. Model-call records show validated responses; no fixture fallback was used. The assertion ledger determines the outcome.',
           ]),
       ...detail.events.filter((e) => e.type === 'verification_fault').map((e) => e.description),
+      ...(detail.artifacts.some((a) => a.storage === 'expired')
+        ? [
+            'Some evidence files expired under the configured retention policy. Assertion results and the event history are retained; unavailable screenshots are not recreated.',
+          ]
+        : []),
       'This report covers the actions and explicit checks shown here. It does not establish other product behavior.',
       'Observed failures do not establish an underlying code-level root cause.',
       'Trace snapshots and trace screenshots are disabled to reduce secret exposure. Separate masked screenshots are retained.',
@@ -110,19 +115,17 @@ No cost estimate is invented when pricing or usage is unavailable.
 ${r.limitations.map((l) => `- ${md(l)}`).join('\n')}
 `;
 }
-export function htmlReport(detail: RunDetail, artifactDir: string) {
+export function htmlReport(detail: RunDetail, artifactDir: string, archiveDir?: string) {
   const r = reportData(detail),
     esc = escapeHtml;
   const screenshot = (id: string) => {
     const artifact = detail.artifacts.find((a) => a.id === id && a.kind === 'screenshot');
     if (!artifact) throw new Error('Unknown screenshot evidence ID');
-    const root = path.resolve(artifactDir),
-      file = path.resolve(root, artifact.filename);
-    if (!file.startsWith(root + path.sep)) throw new Error('Invalid artifact path');
     try {
+      const file = evidencePath(artifact, artifactDir, archiveDir);
       return `<figure id="${esc(id)}"><img alt="${esc(artifact.label)}" src="data:image/png;base64,${readFileSync(file).toString('base64')}"><figcaption>${esc(artifact.label)} · Evidence ${id}</figcaption></figure>`;
     } catch {
-      return `<p>Evidence ${id} is recorded but the screenshot file is unavailable.</p>`;
+      return `<p>Evidence ${id} is recorded but ${artifact.storage === 'expired' ? 'expired under the configured retention policy' : 'the screenshot file is unavailable'}.</p>`;
     }
   };
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>ProofPack evidence · ${esc(r.outcome)}</title><style>body{max-width:1000px;margin:50px auto;padding:0 24px;background:#faf9f6;color:#253049;font:15px/1.7 system-ui}h1{font-size:36px;letter-spacing:-1px}h2{margin-top:40px}table{width:100%;border-collapse:collapse;background:#fff}td,th{padding:14px;text-align:left;border-bottom:1px solid #ddd}img{width:100%;border:1px solid #ddd;border-radius:8px}figure{margin:28px 0}figcaption{color:#667085;font-size:12px}.badge{padding:8px 16px;background:#e9edf8;border-radius:30px}.failed{color:#b42318}.passed{color:#16815b}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;padding:20px;border-radius:12px}a{color:#315ecc}</style></head><body><p>◈ PROOFPACK / EVIDENCE REPORT</p><h1>${esc(r.attempt?.plan?.name ?? 'Execution report')}</h1><span class="badge ${r.outcome}">${esc(r.outcome.toUpperCase())}</span> <span class="badge">${detail.run.mode.toUpperCase()} MODE</span><p>Target: ${esc(detail.run.targetUrl)}<br>Run ${detail.run.id} · ${new Date(detail.run.createdAt).toISOString()}</p><h2>What was requested</h2><p>${esc(detail.run.brief)}</p><p><strong>Expected:</strong> ${esc(detail.run.expected)}</p><h2>Assertion ledger</h2><table><thead><tr><th>Check</th><th>Expected / observed</th><th>Result</th></tr></thead><tbody>${r.required

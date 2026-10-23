@@ -16,7 +16,8 @@ export async function POST(
       ? Response.json({ ok: true })
       : Response.json(
           {
-            error: 'Retry unavailable: the run is active or its bounded attempt limit was reached.',
+            error: store.retryPolicy(id).reason,
+            retry: store.retryPolicy(id),
           },
           { status: 409 },
         );

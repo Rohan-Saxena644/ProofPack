@@ -6,6 +6,7 @@ import { fixturePlan, fixtureDecision, type DecisionInput } from './fixture';
 import { demoScenario } from '../core/demo';
 import { discoverModel, ProviderError, retryDelay, groqSchema } from './provider';
 import { setTimeout as delay } from 'node:timers/promises';
+import { QuotaGate, QuotaUnavailable } from './quota';
 
 export interface ModelReply {
   value: unknown;
@@ -34,7 +35,10 @@ Use only assigned assertion IDs. Never alter expectations or skip required check
 
 export class LiveAdapter implements Adapter {
   private format: string | null = null;
-  constructor(readonly config: Config) {}
+  constructor(
+    readonly config: Config,
+    readonly quota?: QuotaGate,
+  ) {}
   async capabilities(signal: AbortSignal) {
     const c = this.config;
     if (c.MODEL_PROVIDER !== 'local') return (await discoverModel(c, signal)).format;
@@ -94,74 +98,90 @@ export class LiveAdapter implements Adapter {
           ? 'Return {"action": <chosen action>} using the supplied response-format schema. Actions: fill(controlId,value), click(controlId), select(controlId,value), navigate(url), assert(assertionId), capture, fresh_context, complete_goal. Every action includes description.'
           : 'Return the plan object using the supplied response-format schema: name, variables, goals, successCriteria, assertions.'
         : `Return ${stage === 'decision' ? '{"action": <chosen action>}' : 'the plan object'}. JSON Schema: ${JSON.stringify(schemaBody)}`;
-    const response = await fetch(`${c.MODEL_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      signal: requestSignal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(c.MODEL_API_KEY ? { Authorization: `Bearer ${c.MODEL_API_KEY}` } : {}),
-      },
-      body: JSON.stringify({
-        model: c.MODEL_ID,
-        temperature: 0,
-        ...(c.MODEL_PROVIDER === 'groq'
-          ? {
-              max_completion_tokens: stage === 'plan' ? 4096 : 1024,
-              ...(/^openai\/gpt-oss-(20b|120b)$/.test(c.MODEL_ID)
-                ? {
-                    reasoning_effort:
-                      c.MODEL_ID.endsWith('120b') || stage === 'plan' ? 'medium' : 'low',
-                  }
-                : {}),
-            }
-          : { max_tokens: stage === 'plan' ? 3000 : 900 }),
-        ...(this.format === 'json_schema'
-          ? {
-              response_format: {
-                type: 'json_schema',
-                json_schema: { name: 'proofpack', strict: true, schema: schemaBody },
-              },
-              ...(c.MODEL_PROVIDER === 'openrouter'
-                ? { provider: { require_parameters: true } }
-                : {}),
-            }
-          : this.format === 'json_object'
-            ? { response_format: { type: 'json_object' } }
-            : {}),
-        messages: [
-          {
-            role: 'system',
-            content: (stage === 'plan' ? planningRules : decisionRules) + `\n${outputInstructions}`,
-          },
-          {
-            role: 'user',
-            content: JSON.stringify({ task: stage, payload: groundedPayload, repair }),
-          },
-        ],
-      }),
-    });
-    if (!response.ok)
-      throw new ProviderError(
-        response.status,
-        response.status === 429 ? retryDelay(response.headers.get('retry-after')) : 0,
-      );
-    const body = await response.json();
-    let value: unknown;
-    try {
-      value = JSON.parse(body.choices?.[0]?.message?.content ?? '');
-    } catch {
-      value = null;
-    }
-    return {
-      value:
-        stage === 'decision' && value && typeof value === 'object' && 'action' in value
-          ? value.action
-          : value,
-      model: body.model ?? c.MODEL_ID,
-      provider: body.provider ?? c.MODEL_PROVIDER,
-      inputTokens: body.usage?.prompt_tokens,
-      outputTokens: body.usage?.completion_tokens,
+    const requestBody = {
+      model: c.MODEL_ID,
+      temperature: 0,
+      ...(c.MODEL_PROVIDER === 'groq'
+        ? {
+            max_completion_tokens: stage === 'plan' ? 4096 : 1024,
+            ...(/^openai\/gpt-oss-(20b|120b)$/.test(c.MODEL_ID)
+              ? {
+                  reasoning_effort:
+                    c.MODEL_ID.endsWith('120b') || stage === 'plan' ? 'medium' : 'low',
+                }
+              : {}),
+          }
+        : { max_tokens: stage === 'plan' ? 3000 : 900 }),
+      ...(this.format === 'json_schema'
+        ? {
+            response_format: {
+              type: 'json_schema',
+              json_schema: { name: 'proofpack', strict: true, schema: schemaBody },
+            },
+            ...(c.MODEL_PROVIDER === 'openrouter'
+              ? { provider: { require_parameters: true } }
+              : {}),
+          }
+        : this.format === 'json_object'
+          ? { response_format: { type: 'json_object' } }
+          : {}),
+      messages: [
+        {
+          role: 'system',
+          content: (stage === 'plan' ? planningRules : decisionRules) + `\n${outputInstructions}`,
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({ task: stage, payload: groundedPayload, repair }),
+        },
+      ],
     };
+    const estimate =
+      Math.ceil(Buffer.byteLength(JSON.stringify(requestBody.messages)) / 3) +
+      (stage === 'plan'
+        ? c.MODEL_PROVIDER === 'groq'
+          ? 4096
+          : 3000
+        : c.MODEL_PROVIDER === 'groq'
+          ? 1024
+          : 900);
+    const permit = await this.quota?.acquire(estimate, signal);
+    let response: Response | undefined;
+    try {
+      response = await fetch(`${c.MODEL_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        signal: AbortSignal.any([signal, AbortSignal.timeout(c.MODEL_TIMEOUT_MS)]),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(c.MODEL_API_KEY ? { Authorization: `Bearer ${c.MODEL_API_KEY}` } : {}),
+        },
+        body: JSON.stringify(requestBody),
+      });
+      if (!response.ok)
+        throw new ProviderError(
+          response.status,
+          response.status === 429 ? retryDelay(response.headers.get('retry-after')) : 0,
+        );
+      const body = await response.json();
+      let value: unknown;
+      try {
+        value = JSON.parse(body.choices?.[0]?.message?.content ?? '');
+      } catch {
+        value = null;
+      }
+      return {
+        value:
+          stage === 'decision' && value && typeof value === 'object' && 'action' in value
+            ? value.action
+            : value,
+        model: body.model ?? c.MODEL_ID,
+        provider: body.provider ?? c.MODEL_PROVIDER,
+        inputTokens: body.usage?.prompt_tokens,
+        outputTokens: body.usage?.completion_tokens,
+      };
+    } finally {
+      if (permit) this.quota!.release(permit, response?.headers, response?.status);
+    }
   }
 }
 export class FixtureAdapter implements Adapter {
@@ -193,7 +213,7 @@ export class ModelSession {
     readonly signal: AbortSignal,
     readonly adapter: Adapter = config.MODEL_MODE === 'fixture'
       ? new FixtureAdapter()
-      : new LiveAdapter(config),
+      : new LiveAdapter(config, new QuotaGate(store, attemptId)),
   ) {}
   async validated<T>(
     stage: 'plan' | 'decision',
@@ -226,6 +246,7 @@ export class ModelSession {
         error = e instanceof Error ? e.message : 'Model output invalid';
         repair = error;
         if (this.signal.aborted) throw e;
+        if (e instanceof QuotaUnavailable) throw e;
         if (e instanceof ProviderError) {
           if (e.status !== 429 || e.retryAfterMs > 60000) throw e;
           retryWait = Math.min(60000, Math.max(1000, e.retryAfterMs + 1000));

@@ -16,7 +16,8 @@ import {
   Square,
   X,
 } from 'lucide-react';
-import type { RunDetail } from '@/core/contracts';
+import type { RunDetail, RunDelta } from '@/core/contracts';
+import { mergeRunDelta } from '@/core/run-feed';
 import { Shell, Badge, duration, getJson } from './shared';
 export function RunView({ id, report = false }: { id: string; report?: boolean }) {
   const [detail, setDetail] = useState<RunDetail | null>(null),
@@ -28,10 +29,25 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
+    let snapshot: RunDetail | null = null;
     const refresh = async () => {
       let pollAgain = true;
       try {
-        const d = await getJson<RunDetail>(`/api/runs/${id}`, { signal: controller.signal });
+        let d: RunDetail;
+        if (!snapshot || snapshot.cursor === undefined)
+          d = await getJson<RunDetail>(`/api/runs/${id}`, { signal: controller.signal });
+        else {
+          d = snapshot;
+          let more = true;
+          while (more) {
+            const update = await getJson<RunDelta>(`/api/runs/${id}/changes?after=${d.cursor}`, {
+              signal: controller.signal,
+            });
+            d = mergeRunDelta(d, update);
+            more = update.hasMore;
+          }
+        }
+        snapshot = d;
         pollAgain = ['queued', 'planning', 'running'].includes(d.run.status);
         if (active) {
           setDetail(d);
@@ -155,9 +171,14 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
             </button>
           ) : (
             ['blocked', 'failed', 'interrupted'].includes(run.status) && (
-              <button disabled={busy} className="secondary-button" onClick={() => mutate('retry')}>
+              <button
+                disabled={busy || detail.retry?.allowed === false}
+                title={detail.retry?.reason ?? undefined}
+                className="secondary-button"
+                onClick={() => mutate('retry')}
+              >
                 <RotateCcw size={14} />
-                Retry in fresh attempt
+                {detail.retry?.remaining === 0 ? 'Attempt limit reached' : 'Retry in fresh attempt'}
               </button>
             )
           )}
@@ -176,12 +197,30 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
           {error}
         </div>
       )}
+      {!live &&
+        detail.retry?.remaining === 0 &&
+        ['blocked', 'failed', 'interrupted'].includes(run.status) && (
+          <div className="info-banner" role="status">
+            <CircleAlert size={17} />
+            <span>{detail.retry.reason}</span>
+          </div>
+        )}
       {run.mode === 'fixture' && (
         <div className="info-banner">
           <CircleAlert size={17} />
           <span>
             <strong>Fixture mode.</strong> Real browser execution with deterministic LaunchDesk
             decisions. No live inference was used.
+          </span>
+        </div>
+      )}
+      {artifacts.some((a) => a.storage === 'archived' || a.storage === 'expired') && (
+        <div className="info-banner" role="status">
+          <CircleAlert size={17} />
+          <span>
+            {artifacts.filter((a) => a.storage === 'archived').length} evidence files are archived
+            and available for download. {artifacts.filter((a) => a.storage === 'expired').length}{' '}
+            expired under the retention policy. Assertion history is retained.
           </span>
         </div>
       )}
@@ -207,7 +246,14 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
         <div className="info-banner">
           <LoaderCircle className="spin" size={17} />
           <span>
-            Waiting for a worker. Start it with <code>npm run worker</code> in a separate terminal.
+            {detail.queueWait ? (
+              `${detail.queueWait.reason} Eligible in about ${Math.max(0, Math.ceil((detail.queueWait.until - now) / 1000))} seconds.`
+            ) : (
+              <>
+                Waiting for a worker. Start it with <code>npm run worker</code> in a separate
+                terminal.
+              </>
+            )}
           </span>
         </div>
       )}
@@ -393,15 +439,22 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
             </div>
             {shots.length ? (
               <div className="screenshot-list">
-                {[...shots].reverse().map((a) => (
-                  <a key={a.id} href={`/api/artifacts/${a.id}`} target="_blank" rel="noreferrer">
-                    <img src={`/api/artifacts/${a.id}`} alt={a.label} loading="lazy" />
-                    <span>
-                      {a.label}
-                      <ArrowRight size={13} />
-                    </span>
-                  </a>
-                ))}
+                {[...shots].reverse().map((a) =>
+                  a.storage === 'expired' ? (
+                    <div className="diagnostic" key={a.id}>
+                      <strong>{a.label}</strong>
+                      <p>Screenshot expired under the retention policy.</p>
+                    </div>
+                  ) : (
+                    <a key={a.id} href={`/api/artifacts/${a.id}`} target="_blank" rel="noreferrer">
+                      <img src={`/api/artifacts/${a.id}`} alt={a.label} loading="lazy" />
+                      <span>
+                        {a.label}
+                        <ArrowRight size={13} />
+                      </span>
+                    </a>
+                  ),
+                )}
               </div>
             ) : (
               <div className="panel-empty">
@@ -417,7 +470,7 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
               <code>npx playwright show-trace &lt;file.zip&gt;</code>.
             </p>
             {artifacts
-              .filter((a) => a.kind === 'trace')
+              .filter((a) => a.kind === 'trace' && a.storage !== 'expired')
               .map((a) => (
                 <a className="trace-link" key={a.id} href={`/api/artifacts/${a.id}`}>
                   <Download size={15} />

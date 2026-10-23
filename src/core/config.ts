@@ -17,6 +17,13 @@ const envSchema = z.object({
   ACTION_TIMEOUT_MS: integer(6000),
   LEASE_MS: integer(15000, 300),
   MAX_ATTEMPTS: integer(2),
+  MODEL_QUOTA_GROUP: z.string().min(1).max(100).default('default'),
+  MODEL_MIN_INTERVAL_MS: integer(0, 0),
+  MODEL_MAX_QUOTA_WAIT_MS: integer(60000),
+  RETENTION_DAYS: integer(0, 0),
+  RETENTION_KEEP_RUNS: integer(20, 0),
+  ARCHIVE_RETENTION_DAYS: integer(0, 0),
+  ARCHIVE_DIR: z.string().default('./data/archives'),
   ALLOWED_TARGET_ORIGINS: z.string().default('http://127.0.0.1:4100,http://127.0.0.1:4101'),
   DATABASE_PATH: z.string().default('./data/proofpack.sqlite'),
   ARTIFACT_DIR: z.string().default('./artifacts'),
@@ -32,6 +39,7 @@ export function loadConfig(overrides: Partial<z.input<typeof envSchema>> = {}) {
     ...e,
     databasePath: path.resolve(e.DATABASE_PATH),
     artifactDir: path.resolve(e.ARTIFACT_DIR),
+    archiveDir: path.resolve(e.ARCHIVE_DIR),
     origins: e.ALLOWED_TARGET_ORIGINS.split(',').map((s) => new URL(s.trim()).origin),
   };
 }
@@ -43,6 +51,11 @@ export function publicConfig(c: Config) {
     model: c.MODEL_MODE === 'fixture' ? 'launchdesk-fixture-v1' : c.MODEL_ID,
     ready: c.MODEL_MODE === 'fixture' || c.MODEL_PROVIDER === 'local' || Boolean(c.MODEL_API_KEY),
     origins: c.origins,
-    limits: { actions: c.MAX_ACTIONS, modelCalls: c.MAX_MODEL_CALLS, timeoutMs: c.RUN_TIMEOUT_MS },
+    limits: {
+      actions: c.MAX_ACTIONS,
+      modelCalls: c.MAX_MODEL_CALLS,
+      timeoutMs: c.RUN_TIMEOUT_MS,
+      attempts: c.MAX_ATTEMPTS,
+    },
   };
 }

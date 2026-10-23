@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   ArrowUpRight,
+  Archive,
   CircleHelp,
   FlaskConical,
   FolderClock,
@@ -48,6 +49,12 @@ export function Shell({ children, mode }: { children: React.ReactNode; mode?: st
             <ArrowUpRight size={14} />
           </Link>
         </nav>
+        <nav>
+          <Link className={path === '/storage' ? 'nav-item active' : 'nav-item'} href="/storage">
+            <Archive size={18} />
+            Evidence storage
+          </Link>
+        </nav>
         <div className="sidebar-bottom">
           <div className="local-card">
             <ShieldCheck size={20} />
@@ -83,11 +90,13 @@ export function Shell({ children, mode }: { children: React.ReactNode; mode?: st
           <div>
             <span className="breadcrumb">Workspace</span>
             <span className="slash">/</span>
-            {path === '/'
-              ? 'New run'
-              : path.endsWith('/report')
-                ? 'Evidence report'
-                : 'Run details'}
+            {path === '/storage'
+              ? 'Evidence storage'
+              : path === '/'
+                ? 'New run'
+                : path.endsWith('/report')
+                  ? 'Evidence report'
+                  : 'Run details'}
           </div>
           <span className="local-indicator">
             <span className="online-dot" />

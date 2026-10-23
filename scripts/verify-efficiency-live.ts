@@ -28,7 +28,27 @@ try {
     [4401, 'failed'],
   ] as const) {
     const run = store.create({ ...demoScenario, targetUrl: `http://127.0.0.1:${port}` });
-    const claim = store.claim('efficiency-live')!;
+    const claim = store.claim('efficiency-live');
+    if (!claim) {
+      failed = true;
+      results.push({
+        runId: run.id,
+        expected,
+        status: 'queued',
+        verified: false,
+        error:
+          store.quotaWait()?.reason ??
+          'No worker claim available. No inference request dispatched.',
+        durationMs: 0,
+        assertionsPassed: 0,
+        assertionsTotal: 0,
+        modelCalls: 0,
+        rateLimitedAttempts: 0,
+        reportedInputTokens: 0,
+        reportedOutputTokens: 0,
+      });
+      continue;
+    }
     const outcome = await executeClaim(store, claim);
     const detail = store.detail(run.id)!;
     let verified = false;
@@ -59,7 +79,7 @@ try {
   }
 } finally {
   await writeFile(
-    'docs/performance-live-verification.json',
+    'docs/scheduler-live-verification.json',
     JSON.stringify(
       {
         verifiedAt: new Date().toISOString(),
@@ -67,7 +87,7 @@ try {
         provider: cfg.MODEL_PROVIDER,
         model: cfg.MODEL_ID,
         directory: root,
-        note: 'Fresh real Chromium persistence runs using the smaller strict prompt. Not a controlled timing benchmark; rate limits/model decisions vary.',
+        note: 'Fresh real Chromium persistence runs using shared provider scheduling. A quota-blocked run and a deferred queued run do not establish complete persistence coverage. Not a controlled timing benchmark; provider limits and model decisions vary.',
         results,
       },
       null,
