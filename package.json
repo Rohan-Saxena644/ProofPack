@@ -1,21 +1,53 @@
 {
-  "name": "proofpack", "version": "0.1.0", "private": true, "license": "MIT",
-  "engines": { "node": ">=22.16" },
+  "name": "proofpack",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.16"
+  },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "worker": "tsx src/worker/main.ts",
     "demo:working": "tsx src/launchdesk/server.ts --port=4100 --mode=working",
     "demo:broken": "tsx src/launchdesk/server.ts --port=4101 --mode=broken",
+    "demo:seed": "tsx scripts/seed-demo.ts",
+    "format": "prettier --write src scripts tests docs *.json *.mjs *.ts README.md",
     "dev:all": "concurrently -k -n dashboard,worker,working,broken \"npm:dev\" \"npm:worker\" \"npm:demo:working\" \"npm:demo:broken\"",
-    "build": "next build", "start": "next start --hostname 127.0.0.1",
-    "typecheck": "tsc --noEmit", "lint": "eslint .",
-    "test": "tsx --test tests/unit.test.ts", "test:e2e": "tsx scripts/verify.ts",
-    "browsers": "playwright install chromium", "model:check": "tsx scripts/check-model.ts"
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "tsx --test tests/unit.test.ts",
+    "test:e2e": "tsx scripts/verify.ts",
+    "browsers": "playwright install chromium",
+    "model:check": "tsx scripts/check-model.ts"
   },
   "dependencies": {
-    "next": "latest", "react": "latest", "react-dom": "latest", "better-sqlite3": "latest", "drizzle-orm": "latest", "playwright": "latest", "zod": "latest", "dotenv": "latest", "lucide-react": "latest"
+    "better-sqlite3": "latest",
+    "dotenv": "latest",
+    "drizzle-orm": "latest",
+    "fflate": "^0.8.3",
+    "lucide-react": "latest",
+    "next": "latest",
+    "playwright": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
-    "typescript": "latest", "tsx": "latest", "@types/node": "latest", "@types/react": "latest", "@types/react-dom": "latest", "@types/better-sqlite3": "latest", "tailwindcss": "latest", "@tailwindcss/postcss": "latest", "eslint": "latest", "eslint-config-next": "latest", "concurrently": "latest"
+    "@tailwindcss/postcss": "latest",
+    "@types/better-sqlite3": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "concurrently": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "prettier": "^3.9.10",
+    "tailwindcss": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
   }
 }

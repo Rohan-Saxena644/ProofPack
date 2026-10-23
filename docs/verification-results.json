@@ -1,0 +1,49 @@
+{
+  "verifiedAt": "2026-10-23T11:06:47.353Z",
+  "mode": "fixture",
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\verification\\41be96dc-b461-4601-bbd7-769ac63d393a",
+  "results": [
+    {
+      "check": "Working persistence, including fresh browser context",
+      "status": "passed",
+      "runId": "d6f8b705-d288-4655-97e4-86a4284048f6",
+      "assertions": 4
+    },
+    {
+      "check": "Broken persistence contradicts the final assertion",
+      "status": "failed",
+      "runId": "235fc0d8-1bd0-493b-b143-40d4669518c0",
+      "assertions": 4
+    },
+    {
+      "check": "Unreachable target",
+      "status": "blocked",
+      "runId": "c03a4bf5-1731-45da-bfe2-6946ad23b5da"
+    },
+    {
+      "check": "Invalid model output stops after 3 repairs",
+      "status": "blocked",
+      "runId": "233bac6b-74ad-4e79-b6be-d845c32a70f5"
+    },
+    {
+      "check": "Cancellation stops further browser actions",
+      "status": "cancelled",
+      "runId": "817acd61-1255-4b04-9b8a-faab04fcbb6c"
+    },
+    {
+      "check": "Expired lease preserved, fresh isolated retry passes",
+      "status": "passed",
+      "runId": "85cf0a2b-c5f3-4817-8952-4f22faee9fc4"
+    },
+    {
+      "check": "Origin boundary blocks requests, redirect, popup and WebSocket",
+      "status": "passed",
+      "runId": "febdb18c-1939-4915-ac55-4200816d7047"
+    },
+    {
+      "check": "HTML embeds loadable screenshots, Markdown matches ledger, finalized traces redact sessions",
+      "status": "passed"
+    }
+  ],
+  "liveInference": "Unverified: no configured credentials or local endpoint."
+}

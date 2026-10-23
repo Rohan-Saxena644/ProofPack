@@ -1,0 +1,6 @@
+node_modules
+.next
+data
+artifacts
+.npm-cache
+package-lock.json
