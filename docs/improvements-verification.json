@@ -1,0 +1,19 @@
+{
+  "verifiedAt": "2026-10-23T18:02:23.777Z",
+  "mode": "fixture",
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\improvements-e2e\\26d6d497-cc91-41c3-b2ab-ca6769c6ef54",
+  "note": "Real production UI, separate worker and real Chromium demo jobs. Only timestamps were intentionally aged to exercise retention in this isolated database.",
+  "checks": [
+    "Production run UI uses snapshot + incremental updates, renders all four passing checks, and stops polling at completion",
+    "Cursor validation rejects invalid input; unchanged feed returns no repeated event/model history",
+    "Actual broken demo retries in a fresh attempt; UI disables exhausted retries and API returns the matching policy",
+    "Reviewed storage preview queues background archival; actual screenshots/traces remain downloadable and embedded in HTML; maintenance status survives reload",
+    "Expiry requires explicit policy + review, returns HTTP 410 for expired files, preserves historical assertions, and protects the recent broken run",
+    "Retention mutations reject foreign origins and stale preview tokens",
+    "Storage screen fits 390px and all workflows have zero page exceptions"
+  ],
+  "passed": true,
+  "deltaResponses": 18,
+  "fullSnapshotResponses": 4,
+  "error": null
+}

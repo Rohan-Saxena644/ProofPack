@@ -100,7 +100,7 @@ The durable ledger determines the result. Both finalization and report generatio
 
 See [architecture, failure modes, and engineering notes](docs/architecture.md).
 
-See the [measured bottleneck review](docs/bottlenecks.md) for prompt-token savings, indexed history queries, terminal polling behavior, and remaining improvements.
+See the [measured bottleneck review](docs/bottlenecks.md) for prompt-token savings, indexed history queries and provider limits. The four follow-up improvements are implemented: workers share quota scheduling, active pages fetch incremental changes, retry controls explain attempt limits, and **Evidence storage** provides reviewed archival/expiry. See [configuration, architecture and final testing](docs/operations.md). Retention is off by default.
 
 ## Open models
 
@@ -182,9 +182,10 @@ npm run lint
 npm test
 npm run test:e2e
 npm run build
+npm run test:improvements
 ```
 
-`test:e2e` starts its own demo servers on **4200–4204**, uses an isolated verification database/artifact directory, and closes the servers. It verifies working persistence, broken persistence, unreachable targets, invalid model output, cancellation, expired leases with a fresh retry, origin boundaries, embedded HTML evidence, and finalized traces.
+`test:e2e` starts its own demo servers on **4200–4204**, uses an isolated verification database/artifact directory, and closes the servers. It verifies working persistence, broken persistence, unreachable targets, invalid model output, cancellation, expired leases with a fresh retry, origin boundaries, embedded HTML evidence, and finalized traces. The 28-test suite also checks shared quota ownership, bounded incremental feeds, verified archives, explicit expiry and retry policy. After building, `test:improvements` runs seven production UI verification groups on isolated ports **3100, 4500 and 4501**, including actual archive downloads, HTML embedding, expiry/410, retry exhaustion and mobile layout. It does not expire the main workspace's evidence.
 
 With `npm run dev:all` running, execute:
 
@@ -204,7 +205,7 @@ With live mode and credentials configured, `npm run test:live` starts isolated d
 
 The MVP handles accessible forms and navigation, exact visible-text/URL assertions, and a fixed set of synthetic input placeholders. CAPTCHA, MFA, file upload, arbitrary scripting, popup workflows, WebSockets, visual comparisons, and arbitrary custom input variable types are outside scope. Local/hosted model quality can affect control resolution; live runs may block. Exact origin allowlists may require explicitly adding a controlled static/API origin for your application. Do not add broad third-party origins casually.
 
-Polling is intentionally simple. Large HTML exports embed all screenshots and consume memory; there is no artifact retention scheduler. Run history lists the most recent 100 runs. There is no automatic retry of state-changing actions. HTTPS proxy tunnels are implemented but the recorded browser suite uses local HTTP targets. Crash detection was verified through explicit lease expiry; an OS-level power-loss test was not performed.
+Active pages use bounded incremental polling and stop on completion. Large HTML exports embed all screenshots and consume memory. Evidence retention uses reviewed background jobs; it is disabled by default and has no unattended deletion timer. Archival relocates uncompressed files; total disk reclamation requires explicit archive expiry or moving archives to another volume. Shared quota scheduling coordinates workers on one database, but cannot create provider capacity or see other applications' usage. The latest scheduler live pair hit a 126-second provider cooldown and deferred the following job without an attempt; complete live persistence coverage for that pair was not established. Run history lists the most recent 100 runs. There is no automatic retry of state-changing actions. HTTPS proxy tunnels are implemented but the recorded browser suite uses local HTTP targets. Crash detection was verified through explicit lease expiry; an OS-level power-loss test was not performed.
 
 ## License
 

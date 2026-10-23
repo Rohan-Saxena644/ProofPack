@@ -1,0 +1,11 @@
+{
+  "verifiedAt": "2026-10-23T17:34:58.009Z",
+  "mode": "fixture",
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\improvements-e2e\\76db7239-2511-4d03-959f-00d5cc13931e",
+  "note": "Real production UI, separate worker and real Chromium demo jobs. Only timestamps were intentionally aged to exercise retention in this isolated database.",
+  "checks": [],
+  "passed": false,
+  "deltaResponses": 3,
+  "fullSnapshotResponses": 1,
+  "error": "Expected values to be strictly equal:\n\n4 !== 3\n"
+}

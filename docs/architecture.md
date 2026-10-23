@@ -20,18 +20,29 @@ The final status is checked against the durable ledger. SQLite finalization and 
 
 ## Storage
 
-| Table         | Purpose                                                                                                   |
-| ------------- | --------------------------------------------------------------------------------------------------------- |
-| `runs`        | User request, target, model mode/configuration identity, current status, cancellation flag, attempt count |
-| `attempts`    | Worker/lease, isolated attempt number, plan, timestamps, outcome and original error                       |
-| `events`      | Durable execution timeline, diagnostics, action/locator/assertion/evidence details                        |
-| `assertions`  | Unique check per attempt, expected/actual values, pass/fail and validated evidence IDs                    |
-| `artifacts`   | Per-attempt screenshot/trace IDs and local paths                                                          |
-| `model_calls` | Actual returned model/provider, latency, available token counts, validation result                        |
+| Table                                     | Purpose                                                                                                   |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `runs`                                    | User request, target, model mode/configuration identity, current status, cancellation flag, attempt count |
+| `attempts`                                | Worker/lease, isolated attempt number, plan, timestamps, outcome and original error                       |
+| `events`                                  | Durable execution timeline, diagnostics, action/locator/assertion/evidence details                        |
+| `assertions`                              | Unique check per attempt, expected/actual values, pass/fail and validated evidence IDs                    |
+| `artifacts`                               | Per-attempt screenshot/trace IDs and local paths                                                          |
+| `model_calls`                             | Actual returned model/provider, latency, available token counts, validation result                        |
+| `provider_budgets`                        | Shared inference lease, token allowance estimates, remaining requests and provider cooldowns              |
+| `run_changes`, `run_streams`              | Cursor journal and per-run compaction floor for incremental updates                                       |
+| `maintenance_locks`                       | Per-run evidence maintenance lease, also enforced by retry                                                |
+| `evidence_archives`, `archived_artifacts` | Verified archive manifests and artifact mappings, including expiry state                                  |
+| `retention_jobs`                          | Persisted reviewed maintenance jobs, lease, status and partial/error results                              |
 
-Database schema version 1 is initialized idempotently. There is no upgrade migration history yet; future schema changes need explicit migrations. Artifact files are separate from SQLite and served only by validated IDs with path containment checks. Files are not embedded into the database.
+Database schema version 1 is initialized idempotently. The additional tables, indexes and feed triggers initialize additively for existing databases. There is no ordered upgrade migration history yet; future changes to existing table layouts need explicit migrations. Artifact files are separate from SQLite and served only by validated IDs with path and realpath containment checks. The artifact route is tracked explicitly: a previously unanchored `artifacts/` ignore rule also ignored `src/app/api/artifacts`; root-anchored runtime ignore rules fix fresh-checkout packaging. Files are not embedded into the database.
 
 Lease reaping filters expired active attempts in SQL with an index on status/lease. Model-call and artifact detail lookups are indexed by attempt, avoiding scans of unrelated history. These additive indexes initialize for existing databases too. Terminal run pages stop polling, revalidate on focus, and resume updates after explicit retries. Active polling waits for the previous request to finish before scheduling another.
+
+Run snapshots and incremental pages use read transactions so cursor and entity state agree. SQLite triggers journal inserts and updates; lease-only heartbeats are excluded. `/api/runs/:id/changes?after=N` returns bounded entity upserts and pagination. Compaction retains recent journal entries and establishes a floor; old cursors receive a snapshot reset. The ledger itself is retained.
+
+Before live inference, a SQLite quota gate reserves a short lease shared by provider/endpoint/model/group. Header-based estimates and cooldowns coordinate workers using this database, while the run's deadline and cancellation still bound waiting. Known long cooldowns defer queue claiming before an attempt is created. Unknown/external consumption can still cause HTTP 429. This is local coordination, not an organization-wide distributed quota service.
+
+Retention is disabled by default. A preview token binds policy and candidate identities; applying it queues a persisted maintenance job instead of doing large copies in an HTTP handler. An idle worker acquires maintenance locks, verifies streamed checksums, atomically commits archive mappings, then removes exact verified working files. Downloads/reports resolve active or archived paths. Optional reviewed expiry verifies the archive inventory, records a recoverable purging state and removes only that managed archive; HTTP 410 explains expired files without changing assertions. Archival moves uncompressed files, so total space reclamation requires expiry or another storage volume. See [operations and recovery limits](operations.md).
 
 ## Outcome state machine
 
@@ -43,7 +54,7 @@ Lease reaping filters expired active attempts in SQL with an index on status/lea
 - **Interrupted:** the lease expired or the worker received a shutdown signal before completion.
 - **Cancelled:** user cancellation was requested and prevents further actions. Finalization also checks the cancellation flag.
 
-Failed, blocked, and interrupted runs can be manually requeued within the attempt limit. A new attempt starts an entirely new browser, credentials and project name. Earlier evidence remains. A state-changing timeout stops the attempt because the original action's outcome may be unknown; the executor does not click again blindly.
+Failed, blocked, and interrupted runs can be manually requeued within the attempt limit. One retry policy supplies the UI's disabled state/explanation and the API's HTTP 409 response; the immediate retry transaction rechecks it and maintenance locks. A new attempt starts an entirely new browser, credentials and project name. Earlier evidence remains. A state-changing timeout stops the attempt because the original action's outcome may be unknown; the executor does not click again blindly.
 
 ## Boundaries
 
@@ -69,6 +80,6 @@ Synthetic credentials are generated per attempt. Screenshots mask password input
 
 Groq GPT-OSS 120B completed actual live working/broken persistence and negative/boundary checks; see [the live verification record](live-verification.md). Early 20B/120B diagnostic failures and cancellations are preserved. Actual provider throttling affected elapsed time. This is a limited verification, not a reliability benchmark. OpenRouter and local inference remain unverified beyond protocol tests/catalog checks. The adapter remains replaceable, with capability negotiation for hosted providers and explicit format configuration for local servers.
 
-Strict-output requests send the full schema once via the provider format field and retain a compact action guide in the prompt. Non-strict modes keep the full schema instructions. [The bottleneck review](bottlenecks.md) records the measured token/query reductions and the remaining provider-quota, retention and incremental-event recommendations.
+Strict-output requests send the full schema once via the provider format field and retain a compact action guide in the prompt. Non-strict modes keep the full schema instructions. [The bottleneck review](bottlenecks.md) records measured token/query reductions, the four completed follow-up improvements and the remaining external provider limit.
 
-Deterministic reports satisfy the evidence requirement without adding an unverified narrative generation stage. A later narrative model should cite validated evidence IDs and must never change ledger outcomes. SQLite is sufficient for a local solo-developer MVP; it is not a distributed queue. Large exports, artifact cleanup, broader browser workflows and richer input variables are follow-up work, not implied capabilities.
+Deterministic reports satisfy the evidence requirement without adding an unverified narrative generation stage. A later narrative model should cite validated evidence IDs and must never change ledger outcomes. SQLite is sufficient for a local solo-developer MVP; it is not a distributed queue. Memory use in large HTML exports, broader browser workflows and richer input variables remain follow-up work.

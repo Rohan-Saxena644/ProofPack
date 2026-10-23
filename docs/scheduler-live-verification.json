@@ -1,0 +1,38 @@
+{
+  "verifiedAt": "2026-10-23T17:38:52.338Z",
+  "mode": "live",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "directory": "D:\\LEARNINGS-2\\GO\\ProofPack\\data\\performance-live\\2ffb07ac-94a9-42f1-896d-3c59afdd48ff",
+  "note": "Fresh real Chromium persistence runs using the smaller strict prompt. Not a controlled timing benchmark; rate limits/model decisions vary.",
+  "results": [
+    {
+      "runId": "5ec36270-979d-42e7-89ca-08274033efd5",
+      "expected": "passed",
+      "status": "blocked",
+      "verified": false,
+      "error": "Model provider rate limited the request (HTTP 429). Retry delay: 126s.",
+      "durationMs": 62274,
+      "assertionsPassed": 1,
+      "assertionsTotal": 1,
+      "modelCalls": 9,
+      "rateLimitedAttempts": 1,
+      "reportedInputTokens": 10523,
+      "reportedOutputTokens": 2780
+    },
+    {
+      "runId": "b2861f25-400a-4aea-beb3-33ee6df43db0",
+      "expected": "failed",
+      "status": "queued",
+      "verified": false,
+      "error": "Waiting for shared provider quota. No attempt will start during the cooldown.",
+      "durationMs": 0,
+      "assertionsPassed": 0,
+      "assertionsTotal": 0,
+      "modelCalls": 0,
+      "rateLimitedAttempts": 0,
+      "reportedInputTokens": 0,
+      "reportedOutputTokens": 0
+    }
+  ]
+}

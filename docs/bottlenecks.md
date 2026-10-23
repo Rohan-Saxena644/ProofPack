@@ -1,6 +1,6 @@
 # Bottleneck review and improvements
 
-Reviewed on 23 October 2026 against the code and recorded live runs. Changes target measured or directly observable waste; the recommendations below are not implemented features.
+Reviewed on 23 October 2026 against the code and recorded live runs. The initial measurements are preserved below. All four follow-up recommendations are now implemented and verified; see [the operations guide](operations.md).
 
 ## Confirmed and fixed
 
@@ -25,7 +25,7 @@ A real Chromium test against the production UI used explicitly mocked HTTP respo
 
 ## Post-change verification and remaining external limit
 
-**18 unit tests, eight fixture browser verification groups, TypeScript, lint and the production build passed.** The production UI polling test above passed too.
+At the initial performance milestone, **18 unit tests, eight fixture browser verification groups, TypeScript, lint and the production build passed.** The production UI polling test above passed too. The subsequent four-feature milestone passes **28 tests** and **seven additional production UI verification groups**; see [the verification record](verification.md).
 
 A fresh live Groq working-app scenario using the smaller prompt passed **4/4 assertions** in **148.7 seconds**, recording 34 model attempts, including 14 HTTP 429s. It exercised actual registration, creation, logout, fresh browser context, login and persistence. This timing is observational: model choices and quota conditions vary, so it is not an isolated speedup measurement.
 
@@ -33,12 +33,14 @@ The subsequent broken-app rerun was **Blocked** before its assertions when Groq 
 
 This establishes that provider quota is still the principal observed external bottleneck. The software changes reduce avoidable token/local work, but cannot grant additional model capacity. No key rotation, provider fallback, account upgrade, or paid service was enabled.
 
-## Remaining improvements, in priority order
+## Four follow-up improvements completed
 
-1. **Coordinate provider quota before increasing concurrency.** Earlier real persistence runs recorded 20–21 HTTP 429s each. Smaller prompts reduce demand, but cannot raise the provider's allowance. Add scheduling based on remaining/reset headers, shared across workers, before adding more workers. For sustained usage, inspect the account's actual allowance and consider an appropriate higher quota or a measured local endpoint. Groq applies limits at organization level; extra keys in the same organization do not create independent allowances. [Groq rate-limit documentation](https://console.groq.com/docs/rate-limits).
-2. **Add configurable artifact archival/retention.** Screenshots, traces and history currently accumulate. Choose retention rules and provide a preview/archive path before deleting evidence. No existing artifacts were deleted in this review.
-3. **Fetch incremental events for larger active histories.** Active pages still request complete run details. A cursor/event endpoint or SSE would reduce repeated transfer when many long runs and viewers are active. Current action/call/attempt limits bound one run; the terminal-polling fix removes the unbounded idle requests first.
-4. **Make retry availability visible.** The API enforces `MAX_ATTEMPTS`, but the UI still offers a retry button after that limit and then displays the API rejection. Disabling it with an explanation would improve clarity; it is a UI improvement rather than the measured execution bottleneck.
+1. **Shared provider quota.** Transactional leases serialize inference per provider/endpoint/model/group across workers sharing SQLite. Returned token/request headers and 429 cooldowns guide reservations. Known cooldowns leave later runs Queued without consuming an attempt. Waits remain cancellable and bounded by configured limits. This coordinates local demand; it cannot raise provider capacity or track usage outside this database.
+2. **Configurable archival and retention.** The Evidence storage page previews candidates and queues reviewed background maintenance. Checksummed copies and manifests commit before exact working files are removed. Downloads and reports resolve archives; optional, separately configured expiry returns HTTP 410 while keeping the ledger. Defaults remain off and the main workspace's existing artifacts were not removed. Archival alone moves, rather than compresses, the evidence footprint.
+3. **Incremental run events.** A bounded cursor feed sends changed entities, including completion updates to existing events. The client merges by ID and falls back to a snapshot after journal compaction. Serial polling still stops at terminal states. The production UI test observed 18 delta responses across the workflow, with no repeated event/model history in unchanged responses.
+4. **Visible retry eligibility.** One policy powers disabled controls, explanations, API rejection and the transactional retry. Attempt exhaustion and maintenance locks are covered by tests; earlier attempts remain visible.
+
+The [new real Groq scheduler run](scheduler-live-verification.json) reached a **126-second HTTP 429 cooldown** after eight valid model responses. That run became Blocked; the next stayed Queued with **zero model calls and no attempt**. This verifies cooldown sharing/deferred claiming, but does not establish complete post-change working/broken persistence results. Historical live passing and failure-detection evidence above remains separate. Provider capacity is still the observed external limit. Large HTML exports and broader browser workflows remain deliberate limits; no new speedup or scalability benchmark is claimed for these four features.
 
 ## Reproduce the measurements
 
@@ -52,7 +54,11 @@ npx.cmd tsx scripts/measure-model-prompt.ts before
 npx.cmd tsx scripts/measure-model-prompt.ts after
 # Against a built/running production dashboard, without model requests:
 npx.cmd tsx scripts/verify-polling.ts
+# Isolated production UI, incremental feed, retry limits, archival and expiry:
+npm.cmd run build
+npm.cmd run test:improvements
 # Fresh real live working/broken browser scenarios on isolated ports 4400/4401:
+# Writes scheduler-live-verification.json; consumes real quota and can be blocked.
 npx.cmd tsx scripts/verify-efficiency-live.ts
 ```
 
