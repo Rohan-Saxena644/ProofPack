@@ -23,7 +23,26 @@ if (base.MODEL_PROVIDER !== 'local' && !base.MODEL_API_KEY.trim())
   );
 const catalog = await discoverModel(base, AbortSignal.timeout(base.MODEL_TIMEOUT_MS));
 console.log(`Live catalog verified: ${catalog.provider} / ${catalog.id} / ${catalog.format}`);
-const root = path.resolve('data/live-verification', randomUUID());
+const resume = process.argv.find((arg) => arg.startsWith('--resume='))?.slice('--resume='.length);
+const liveRoot = path.resolve('data/live-verification');
+const root = resume ? path.resolve(resume) : path.resolve(liveRoot, randomUUID());
+if (!root.startsWith(liveRoot + path.sep))
+  throw new Error('Resume directory must be under data/live-verification.');
+const previousSummary = resume
+  ? (JSON.parse(await readFile('docs/live-verification-results.json', 'utf8')) as {
+      directory: string;
+      provider: string;
+      model: string;
+      results: Result[];
+    })
+  : null;
+if (
+  previousSummary &&
+  (previousSummary.directory !== root ||
+    previousSummary.provider !== base.MODEL_PROVIDER ||
+    previousSummary.model !== base.MODEL_ID)
+)
+  throw new Error('Resume requires the matching model/provider and saved verification directory.');
 await mkdir(root, { recursive: true });
 const cfg = loadConfig({
   DATABASE_PATH: path.join(root, 'proofpack.sqlite'),
@@ -58,8 +77,44 @@ type Result = {
   detail?: string;
 };
 const results: Result[] = [];
+const reusedRunIds = new Set<string>();
 let failure: unknown;
 async function execute(port: number, adapter?: Adapter, input = demoScenario, faultNote?: string) {
+  if (previousSummary) {
+    const candidate = store
+      .list()
+      .find(
+        (run) =>
+          run.targetUrl === `http://127.0.0.1:${port}` &&
+          run.brief === input.brief &&
+          run.expected === input.expected &&
+          run.mode === 'live' &&
+          run.model === cfg.MODEL_ID &&
+          run.provider === cfg.MODEL_PROVIDER &&
+          ((!adapter &&
+            port !== 4303 &&
+            run.status ===
+              (port === 4300
+                ? 'passed'
+                : port === 4301
+                  ? 'failed'
+                  : port === 4302
+                    ? 'blocked'
+                    : 'passed') &&
+            previousSummary.results.some((result) => result.verified && result.runId === run.id)) ||
+            (faultNote &&
+              store
+                .detail(run.id)!
+                .events.some(
+                  (event) => event.type === 'verification_fault' && event.description === faultNote,
+                ))),
+      );
+    if (candidate) {
+      reusedRunIds.add(candidate.id);
+      console.log(`Revalidating saved live evidence ${candidate.id}: ${candidate.status}`);
+      return store.detail(candidate.id)!;
+    }
+  }
   const run = store.create({ ...input, targetUrl: `http://127.0.0.1:${port}` });
   const claim = store.claim('live-verification')!;
   if (faultNote) store.event(claim.attempt.id, 'verification_fault', faultNote);
@@ -103,35 +158,48 @@ try {
     inference: 'live',
   });
 
-  const cancelRun = store.create({ ...demoScenario, targetUrl: 'http://127.0.0.1:4300' });
-  const claim = store.claim('live-cancellation')!;
-  const live = new LiveAdapter(cfg);
-  let decisions = 0,
-    stepsAtCancel = -1;
-  const cancelling: Adapter = {
-    async request(stage, payload, schema, repair, signal) {
-      const reply = await live.request(stage, payload, schema, repair, signal);
-      if (stage === 'decision' && ++decisions === 2) {
-        stepsAtCancel = store.detail(cancelRun.id)!.events.filter((e) => e.type === 'step').length;
-        store.cancel(cancelRun.id);
-      }
-      return reply;
-    },
-  };
-  const cancelled = await executeClaim(store, claim, cancelling);
-  assert.equal(cancelled.status, 'cancelled');
-  assert.ok(stepsAtCancel >= 0);
-  assert.equal(
-    store.detail(cancelRun.id)!.events.filter((e) => e.type === 'step').length,
-    stepsAtCancel,
+  const savedCancellation = previousSummary?.results.find(
+    (result) =>
+      result.verified &&
+      result.check === 'Cancellation after a real live decision starts no further browser actions',
   );
-  results.push({
-    check: 'Cancellation after a real live decision starts no further browser actions',
-    verified: true,
-    runId: cancelRun.id,
-    observedStatus: cancelled.status,
-    inference: 'live + deterministic cancellation timing',
-  });
+  if (savedCancellation?.runId) {
+    assert.equal(store.get(savedCancellation.runId)?.status, 'cancelled');
+    reusedRunIds.add(savedCancellation.runId);
+    results.push(savedCancellation);
+  } else {
+    const cancelRun = store.create({ ...demoScenario, targetUrl: 'http://127.0.0.1:4300' });
+    const claim = store.claim('live-cancellation')!;
+    const live = new LiveAdapter(cfg);
+    let decisions = 0,
+      stepsAtCancel = -1;
+    const cancelling: Adapter = {
+      async request(stage, payload, schema, repair, signal) {
+        const reply = await live.request(stage, payload, schema, repair, signal);
+        if (stage === 'decision' && ++decisions === 2) {
+          stepsAtCancel = store
+            .detail(cancelRun.id)!
+            .events.filter((e) => e.type === 'step').length;
+          store.cancel(cancelRun.id);
+        }
+        return reply;
+      },
+    };
+    const cancelled = await executeClaim(store, claim, cancelling);
+    assert.equal(cancelled.status, 'cancelled');
+    assert.ok(stepsAtCancel >= 0);
+    assert.equal(
+      store.detail(cancelRun.id)!.events.filter((e) => e.type === 'step').length,
+      stepsAtCancel,
+    );
+    results.push({
+      check: 'Cancellation after a real live decision starts no further browser actions',
+      verified: true,
+      runId: cancelRun.id,
+      observedStatus: cancelled.status,
+      inference: 'live + deterministic cancellation timing',
+    });
+  }
 
   const malformedLive = new LiveAdapter(cfg);
   const malformed = await execute(
@@ -149,13 +217,23 @@ try {
   );
   assert.equal(malformed.run.status, 'blocked');
   assert.equal(malformed.modelCalls.length, 3);
-  assert.ok(malformed.modelCalls.every((c) => c.error?.includes('structured schema')));
+  const invalidResponses = malformed.modelCalls.filter((call) =>
+    call.error?.includes('structured schema'),
+  );
+  const rateLimitedAttempts = malformed.modelCalls.filter((call) =>
+    call.error?.includes('HTTP 429'),
+  );
+  assert.ok(invalidResponses.length > 0);
+  assert.equal(invalidResponses.length + rateLimitedAttempts.length, malformed.modelCalls.length);
+  assert.ok(malformed.modelCalls.every((call) => !call.valid));
+  assert.equal(malformed.events.filter((event) => event.type === 'step').length, 0);
   results.push({
-    check: 'Three real responses intentionally corrupted: bounded schema rejection',
+    check: 'Intentionally corrupted live responses rejected within three bounded attempts',
     verified: true,
     runId: malformed.run.id,
     observedStatus: malformed.run.status,
     inference: 'live + injected output corruption (not a natural provider failure)',
+    detail: `${invalidResponses.length} intentionally invalid live responses; ${rateLimitedAttempts.length} rate-limited transport attempts. Transport failures share the request budget.`,
   });
 
   const boundaries = await execute(4303, undefined, {
@@ -219,6 +297,7 @@ try {
     model: cfg.MODEL_ID,
     catalog,
     directory: root,
+    reusedRunIds: [...reusedRunIds],
     results,
   };
   await writeFile('docs/live-verification-results.json', JSON.stringify(summary, null, 2) + '\n');

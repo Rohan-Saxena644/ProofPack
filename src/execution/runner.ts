@@ -10,6 +10,7 @@ import { observe, resolveControl } from './observe';
 import { boundaryProxy } from './proxy';
 import { redactTraceArchive } from './trace';
 import { assertionOutcome } from '../core/outcomes';
+import { validateProgress } from './guards';
 export { assertionOutcome } from '../core/outcomes';
 
 export class AssertionFailure extends Error {}
@@ -213,17 +214,26 @@ export async function executeClaim(
     await screenshot('Target application opened');
     const completedAssertions: string[] = [];
     for (let goalIndex = 0; goalIndex < plan.goals.length; goalIndex++) {
+      let previousObservation = '';
       const goal = plan.goals[goalIndex],
         history: Action[] = [];
+      const executedSteps: {
+        action: Action;
+        urlBefore: string;
+        urlAfter: string;
+        locator?: string;
+      }[] = [];
       event('goal', goal.instruction);
       for (;;) {
         check();
         if (actionCount >= cfg.MAX_ACTIONS) throw new Error('Total action limit reached.');
         requireAllowed(page!.url(), cfg.origins);
         const observation: Observation = await observe(page!, redact);
+        const observationKey = JSON.stringify(observation);
         const action = await model.decision(
-          { goalIndex, goal, observation, history, completedAssertions, plan },
+          { goalIndex, goal, observation, history, executedSteps, completedAssertions, plan },
           (a) => {
+            validateProgress(a, observation, history, previousObservation);
             if ('controlId' in a && !observation.controls.some((c) => c.id === a.controlId))
               throw new Error('Choose a controlId from the current observation.');
             if (
@@ -373,6 +383,13 @@ export async function executeClaim(
           stepData.url = safeUrl(page!.url());
           store.endEvent(stepId, 'passed', clean(stepData));
           history.push(action);
+          executedSteps.push({
+            action,
+            urlBefore: observation.url,
+            urlAfter: safeUrl(page!.url()),
+            ...(typeof stepData.locator === 'string' ? { locator: stepData.locator } : {}),
+          });
+          previousObservation = observationKey;
         } catch (e) {
           const evidence = await screenshot('Failure evidence').catch(() => null);
           store.endEvent(

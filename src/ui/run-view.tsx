@@ -21,7 +21,8 @@ import { Shell, Badge, duration, getJson } from './shared';
 export function RunView({ id, report = false }: { id: string; report?: boolean }) {
   const [detail, setDetail] = useState<RunDetail | null>(null),
     [error, setError] = useState(''),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [now, setNow] = useState(0);
   useEffect(() => {
     let active = true;
     const refresh = async () => {
@@ -29,6 +30,7 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
         const d = await getJson<RunDetail>(`/api/runs/${id}`);
         if (active) {
           setDetail(d);
+          setNow(Date.now());
           setError('');
         }
       } catch (e) {
@@ -83,6 +85,10 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
   const currentAssertions = assertions.filter((a) => a.attemptId === attempt?.id),
     shots = artifacts.filter((a) => a.kind === 'screenshot');
   const required = attempt?.plan?.assertions ?? [];
+  const rateWait = events.findLast(
+    (event) => event.attemptId === attempt?.id && event.type === 'model_wait',
+  );
+  const waitSeconds = Math.ceil((Number(rateWait?.data.retryAt ?? 0) - now) / 1000);
   const tokens = modelCalls.some((c) => c.inputTokens !== null)
     ? modelCalls
         .reduce((sum, c) => sum + (c.inputTokens ?? 0) + (c.outputTokens ?? 0), 0)
@@ -177,6 +183,14 @@ export function RunView({ id, report = false }: { id: string; report?: boolean }
               : `Run ${run.status}.`}
           </strong>
           <p>{attempt.error}</p>
+        </div>
+      )}
+      {live && waitSeconds > 0 && (
+        <div className="info-banner" role="status">
+          <Clock3 size={17} />
+          <span>
+            Provider rate limit. Retrying in about {waitSeconds} seconds within this run’s limits.
+          </span>
         </div>
       )}
       {run.status === 'queued' && (

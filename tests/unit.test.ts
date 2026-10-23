@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from '../src/core/config';
-import { actionSchema, planSchema } from '../src/core/contracts';
+import { actionSchema, planSchema, type Observation, type Action } from '../src/core/contracts';
 import { fixturePlan } from '../src/ai/fixture';
 import { Store } from '../src/db/store';
 import { allowedUrl } from '../src/execution/boundaries';
@@ -14,8 +14,29 @@ import { LiveAdapter, FixtureAdapter, ModelSession } from '../src/ai/model';
 import { discoverModel, groqFormat, ProviderError, retryDelay } from '../src/ai/provider';
 import { redactTraceArchive } from '../src/execution/trace';
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
+import { validateProgress } from '../src/execution/guards';
 
 const origins = ['http://127.0.0.1:4100'];
+const decisionInput = {
+  goalIndex: 0,
+  goal: fixturePlan.goals[0],
+  observation: { url: origins[0], text: '', controls: [] },
+  history: [],
+  executedSteps: [
+    {
+      action: {
+        type: 'click' as const,
+        controlId: 'old-submit',
+        description: 'Submit registration',
+      },
+      urlBefore: `${origins[0]}/register`,
+      urlAfter: `${origins[0]}/projects`,
+      locator: 'role=button, name=Create account',
+    },
+  ],
+  completedAssertions: [],
+  plan: fixturePlan,
+};
 test('fixture planning rejects custom requests instead of ignoring user intent', async () => {
   await assert.rejects(
     new FixtureAdapter().request('plan', {
@@ -58,8 +79,117 @@ test('action vocabulary rejects code, unknown fields and unsupported actions', (
     true,
   );
 });
+test('empty form submits are rejected without blocking logout in another form', () => {
+  const observation: Observation = {
+    url: origins[0],
+    text: 'Your projects',
+    controls: [
+      {
+        id: 'project',
+        role: 'textbox',
+        name: 'Project name',
+        tag: 'input',
+        inputType: 'text',
+        testId: null,
+        secret: false,
+        filled: false,
+        required: true,
+        formId: 'project-form',
+        options: [],
+      },
+      {
+        id: 'create',
+        role: 'button',
+        name: 'Create project',
+        tag: 'button',
+        inputType: 'submit',
+        testId: null,
+        secret: false,
+        filled: false,
+        required: false,
+        formId: 'project-form',
+        options: [],
+      },
+      {
+        id: 'logout',
+        role: 'button',
+        name: 'Log out',
+        tag: 'button',
+        inputType: 'submit',
+        testId: null,
+        secret: false,
+        filled: false,
+        required: false,
+        formId: 'logout-form',
+        options: [],
+      },
+    ],
+  };
+  assert.throws(
+    () =>
+      validateProgress(
+        { type: 'click', controlId: 'create', description: 'Submit' },
+        observation,
+        [],
+        '',
+      ),
+    /Required fields/,
+  );
+  assert.doesNotThrow(() =>
+    validateProgress(
+      { type: 'click', controlId: 'logout', description: 'Log out' },
+      observation,
+      [],
+      '',
+    ),
+  );
+});
+test('unchanged repeated actions and repeated context resets are bounded', () => {
+  const observation: Observation = { url: origins[0], text: 'Same page', controls: [] };
+  const navigation: Action = { type: 'navigate', url: origins[0], description: 'Open page' };
+  assert.throws(
+    () =>
+      validateProgress(
+        { ...navigation, description: 'Try again' },
+        observation,
+        [navigation],
+        JSON.stringify(observation),
+      ),
+    /did not change/,
+  );
+  assert.doesNotThrow(() =>
+    validateProgress(navigation, observation, [navigation], 'different previous page'),
+  );
+  assert.throws(
+    () =>
+      validateProgress(
+        { type: 'fresh_context', description: 'Reset again' },
+        observation,
+        [{ type: 'fresh_context', description: 'Reset' }],
+        '',
+      ),
+    /already started/,
+  );
+});
 test('plans require explicit nonduplicated assertions assigned once', () => {
   assert.equal(planSchema.safeParse(fixturePlan).success, true);
+  assert.equal(
+    planSchema.safeParse({
+      name: 'Heading check',
+      variables: [],
+      goals: [{ instruction: 'Check the requested heading', assertions: ['heading'] }],
+      successCriteria: ['Boundary check is visible'],
+      assertions: [
+        {
+          id: 'heading',
+          description: 'Requested heading',
+          kind: 'text_visible',
+          expected: 'Boundary check',
+        },
+      ],
+    }).success,
+    true,
+  );
   assert.equal(planSchema.safeParse({ ...fixturePlan, assertions: [] }).success, false);
   const plan = structuredClone(fixturePlan);
   plan.goals[0].assertions.push('persisted');
@@ -268,7 +398,7 @@ test('live adapter sends schema, records actual provider metadata, and unwraps d
     );
     const reply = await adapter.request(
       'decision',
-      {},
+      decisionInput,
       actionSchema,
       null,
       new AbortController().signal,
@@ -296,10 +426,15 @@ test('Groq discovers account models and sends strict output with reasoning token
       assert.equal(body.response_format.json_schema.strict, true);
       assert.ok(body.response_format.json_schema.schema.properties.action.anyOf);
       assert.ok(!JSON.stringify(body.response_format.json_schema.schema).includes('"oneOf"'));
-      assert.equal(body.max_completion_tokens, 2048);
+      assert.equal(body.max_completion_tokens, 1024);
       assert.equal(body.reasoning_effort, 'low');
       assert.equal(body.provider, undefined);
       assert.equal(body.max_tokens, undefined);
+      const grounded = JSON.parse(body.messages[1].content).payload;
+      assert.equal(grounded.executedActions[0].urlAfter, `${origins[0]}/projects`);
+      assert.equal(grounded.executedActions[0].action.controlId, 'old-submit');
+      assert.equal(grounded.plan, undefined);
+      assert.ok(!JSON.stringify(body).includes('synthetic-key'));
       return Response.json({
         model: 'openai/gpt-oss-20b',
         usage: { prompt_tokens: 25, completion_tokens: 10 },
@@ -318,7 +453,7 @@ test('Groq discovers account models and sends strict output with reasoning token
     });
     const reply = await new LiveAdapter(cfg).request(
       'decision',
-      {},
+      decisionInput,
       actionSchema,
       null,
       new AbortController().signal,

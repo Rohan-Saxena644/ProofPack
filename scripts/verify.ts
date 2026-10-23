@@ -239,7 +239,8 @@ try {
     mode: 'fixture',
     directory: root,
     results,
-    liveInference: 'Unverified: no configured credentials or local endpoint.',
+    liveInference:
+      'Fixture-only suite; live verification is recorded separately in docs/live-verification-results.json.',
   };
   await writeFile('docs/verification-results.json', JSON.stringify(summary, null, 2) + '\n');
   console.log(JSON.stringify(summary, null, 2));

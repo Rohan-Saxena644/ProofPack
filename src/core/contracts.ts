@@ -17,7 +17,7 @@ export const planSchema = z
     name: z.string().min(1).max(150),
     variables: z
       .array(z.enum(['email', 'password', 'project']))
-      .min(1)
+      .min(0)
       .max(3),
     goals: z
       .array(
@@ -79,6 +79,9 @@ export interface Control {
   inputType: string;
   testId: string | null;
   secret: boolean;
+  filled: boolean;
+  required: boolean;
+  formId: string | null;
   options: string[];
 }
 export interface Observation {

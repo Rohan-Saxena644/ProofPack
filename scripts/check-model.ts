@@ -11,7 +11,7 @@ if (c.MODEL_PROVIDER !== 'local') {
         outputFormat: model.format,
         supportedParameters: model.supportedParameters,
         contextLength: model.contextLength,
-        note: 'Catalog check only. This does not verify inference or account access.',
+        note: 'Catalog check only. A live run is required to verify inference and model-serving access.',
       },
       null,
       2,

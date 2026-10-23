@@ -54,6 +54,7 @@ export interface DecisionInput {
   goal: Plan['goals'][number];
   observation: Observation;
   history: Action[];
+  executedSteps?: { action: Action; urlBefore: string; urlAfter: string; locator?: string }[];
   completedAssertions: string[];
   plan: Plan;
 }

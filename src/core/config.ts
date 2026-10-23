@@ -25,7 +25,7 @@ export function loadConfig(overrides: Partial<z.input<typeof envSchema>> = {}) {
   const source = { ...process.env, ...overrides };
   const providerDefaults =
     source.MODEL_PROVIDER === 'groq'
-      ? { MODEL_BASE_URL: 'https://api.groq.com/openai/v1', MODEL_ID: 'openai/gpt-oss-20b' }
+      ? { MODEL_BASE_URL: 'https://api.groq.com/openai/v1', MODEL_ID: 'openai/gpt-oss-120b' }
       : {};
   const e = envSchema.parse({ ...providerDefaults, ...source });
   return {

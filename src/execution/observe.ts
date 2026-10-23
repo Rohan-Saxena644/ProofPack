@@ -55,6 +55,11 @@ export async function observe(page: Page, redact: (s: string) => string): Promis
           inputType: field.type || '',
           testId: el.getAttribute('data-testid'),
           secret: field.type === 'password',
+          filled: ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) && Boolean(field.value),
+          required: Boolean(field.required),
+          formId: el.closest('form')
+            ? `f${Array.from(document.forms).indexOf(el.closest('form')!)}`
+            : null,
           options:
             el.tagName === 'SELECT'
               ? [...(el as HTMLSelectElement).options].map((o) => o.label).slice(0, 25)
