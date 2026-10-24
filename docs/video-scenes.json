@@ -1,0 +1,86 @@
+[
+  {
+    "id": "intro",
+    "title": "ProofPack · local software",
+    "caption": "Turn a feature brief into browser checks and evidence you can share.",
+    "narration": "ProofPack is local software for the last mile after building a feature. It turns a brief into browser checks, screenshots, traces, and a report you can inspect."
+  },
+  {
+    "id": "brief",
+    "title": "01 · Describe the behavior",
+    "caption": "Choose an allowlisted target. Describe the feature and expected outcomes.",
+    "narration": "Start with an application you control, describe the feature, and state what success means. This sample checks whether a project survives logout and a fresh login."
+  },
+  {
+    "id": "live",
+    "title": "02 · AI plans; the browser executes",
+    "caption": "Live mode: Groq / GPT-OSS 120B. We will inspect previously completed real runs.",
+    "narration": "In live mode, the model plans goals and chooses bounded actions from page observations. This walkthrough inspects previously completed real Groq runs. It does not start new inference."
+  },
+  {
+    "id": "pass",
+    "title": "03 · Working application: four checks pass",
+    "caption": "Project creation → logout → fresh login → project still present. Actual recorded run.",
+    "narration": "The working LaunchDesk run passed all four checks: project creation, logout, fresh login, and the project still being present. These results come from executable assertions."
+  },
+  {
+    "id": "timeline",
+    "title": "04 · Inspect the actions",
+    "caption": "The timeline preserves actual browser steps, evidence references and attempt history.",
+    "narration": "The timeline records what the browser actually exercised. It keeps actions and evidence references, including the fresh browser context used to test persistence across sessions."
+  },
+  {
+    "id": "pass-evidence",
+    "title": "05 · See the passing evidence",
+    "caption": "Captured by the actual browser run: the project remains after a fresh session.",
+    "narration": "This is the screenshot cited by the final passing assertion. The project is visible after the fresh login. The evidence is stored locally and can be opened directly."
+  },
+  {
+    "id": "fail",
+    "title": "06 · Broken application: persistence fails",
+    "caption": "Three checks pass. The final persistence check fails. The report keeps that distinction.",
+    "narration": "The deliberately broken application tells a different story. Creation and login work, but only three of four checks pass. The final persistence assertion detects the missing project."
+  },
+  {
+    "id": "fail-evidence",
+    "title": "07 · Evidence of the failure",
+    "caption": "The recorded project list is empty after login. The report does not invent a code-level cause.",
+    "narration": "Creation looked successful, but the recorded project list is empty after login. ProofPack reports this observed failure. It does not pretend to know the underlying code-level cause."
+  },
+  {
+    "id": "attempts",
+    "title": "08 · Keep the history honest",
+    "caption": "The earlier quota-blocked attempt stays visible. Fresh retries retain prior evidence.",
+    "narration": "Earlier attempts stay visible. This run first encountered a provider quota block, then detected the feature failure on a fresh retry. The exhausted retry limit is explained."
+  },
+  {
+    "id": "export",
+    "title": "09 · Export a proof pack",
+    "caption": "Download HTML with embedded screenshots, Markdown, and separate Playwright traces.",
+    "narration": "The report brings the request and checks together. Export self-contained HTML with embedded screenshots, Markdown, or a separate sanitized Playwright trace for local investigation."
+  },
+  {
+    "id": "standalone",
+    "title": "10 · Share the evidence",
+    "caption": "This is the exported HTML file opened independently of the dashboard.",
+    "narration": "This exported HTML opens independently of the dashboard. Its screenshots are embedded in the file, so the recorded result can travel with its visual evidence."
+  },
+  {
+    "id": "storage",
+    "title": "11 · Control evidence storage",
+    "caption": "Retention is off here. Archival and optional expiry require a reviewed preview.",
+    "narration": "Evidence storage makes the retention policy visible. It is off in this workspace. Reviewed archival keeps downloads available, while optional expiry preserves the historical assertion ledger."
+  },
+  {
+    "id": "architecture",
+    "title": "12 · Built to run on your machine",
+    "caption": "Next.js dashboard → separate Playwright worker → SQLite ledger + local evidence files.",
+    "narration": "The system uses a Next.js dashboard, a separate Playwright worker, and a SQLite ledger with local evidence files. Live hosted inference sends the brief and bounded page observations to the provider."
+  },
+  {
+    "id": "closing",
+    "title": "ProofPack · Show the proof",
+    "caption": "AI selects actions. Executable checks determine outcomes. Keep the evidence.",
+    "narration": "ProofPack helps developers demonstrate features, catch observable regressions, and share inspectable evidence. It covers the checks it actually ran. AI selects actions; executable assertions determine the outcome."
+  }
+]

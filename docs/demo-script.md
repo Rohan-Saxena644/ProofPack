@@ -1,5 +1,7 @@
 # Three-minute walkthrough
 
+For the completed captioned recording, editable narration and reproduction steps, see [the local video handoff](video.md). [ProofPack, briefly](project-overview.md) explains the project in plain language.
+
 Before recording: `npm run dev:all`. Open http://127.0.0.1:3000. Confirm **Fixture mode** for the timed walkthrough below, or use the verified Groq live configuration. Keep both LaunchDesk instances running. Live inference can spend minutes waiting for provider quota: for a three-minute live presentation, create working/broken runs beforehand and open their recorded reports. Describe actual elapsed values instead of promising a duration.
 
 | Time      | Show                                                                                               | Say                                                                                                                                                                                                                                                           |
